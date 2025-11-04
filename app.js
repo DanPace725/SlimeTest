@@ -10,7 +10,7 @@ import { RewardTracker, EpisodeManager, updateFindTimeEMA, calculateAdaptiveRewa
 import { CEMLearner, TrainingManager } from './learner.js';
 import { TrainingUI } from './trainingUI.js';
 import { visualizeScentGradient, visualizeScentHeatmap } from './scentGradient.js';
-import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResourceSpawnLocation } from './plantEcology.js';
+import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResourceSpawnLocation, getSpawnPressureMultiplier } from './plantEcology.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -843,12 +843,19 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         
         // Check population cap (count only ALIVE agents, not dead ones!)
         const aliveCount = World.bundles.filter(b => b.alive).length;
-        if (aliveCount >= CONFIG.mitosis.maxAgents) return false;
-        
+        const aliveLimit = Math.min(
+          CONFIG.mitosis.maxAgents,
+          CONFIG.mitosis.maxAliveAgents || CONFIG.mitosis.maxAgents
+        );
+        if (aliveCount >= aliveLimit) return false;
+
         // Check carrying capacity (if enabled)
         if (CONFIG.mitosis.respectCarryingCapacity) {
-          const maxPopulation = Math.floor(
-            World.resources.length * CONFIG.mitosis.carryingCapacityMultiplier
+          const maxPopulation = Math.max(
+            aliveLimit,
+            Math.floor(
+              World.resources.length * CONFIG.mitosis.carryingCapacityMultiplier
+            )
           );
           if (aliveCount >= maxPopulation) return false;
         }
@@ -1294,15 +1301,18 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         // Plant ecology: show resource count with dynamic limit if enabled
         if (CONFIG.resourceScaleWithAgents) {
           const aliveCount = World.bundles.filter(b => b.alive).length;
+          const spawnPressure = CONFIG.plantEcology.spawnPressure;
+          const minResourceMultiplier = spawnPressure?.minResourceMultiplier ?? spawnPressure?.minSeedMultiplier ?? 1;
+          const pressureMultiplier = getSpawnPressureMultiplier(aliveCount, minResourceMultiplier);
           const maxResources = Math.floor(
             clamp(
-              CONFIG.resourceBaseAbundance - (aliveCount * CONFIG.resourceCompetition),
+              CONFIG.resourceBaseAbundance * pressureMultiplier,
               CONFIG.resourceScaleMinimum,
               CONFIG.resourceScaleMaximum
             )
           );
-          const competition = (aliveCount * CONFIG.resourceCompetition).toFixed(1);
-          resourceInfo = `🌿 resources: ${World.resources.length}/${maxResources} (${aliveCount} agents | -${competition} competition)`;
+          const pressurePct = Math.round((1 - pressureMultiplier) * 100);
+          resourceInfo = `🌿 resources: ${World.resources.length}/${maxResources} (${aliveCount} agents | pressure ${pressurePct}%)`;
         } else {
           resourceInfo = `🌿 resources: ${World.resources.length} | plants: ${World.carryingCapacity}`;
         }
@@ -1438,44 +1448,45 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         if (CONFIG.plantEcology.enabled && FertilityField) {
           // Calculate dynamic resource limit based on living agents (INVERSE: more agents = less food)
           let maxResources = CONFIG.resourceStableMax;
+          const aliveCount = World.bundles.filter(b => b.alive).length;
+
           if (CONFIG.resourceScaleWithAgents) {
-            const aliveCount = World.bundles.filter(b => b.alive).length;
-            // Inverse relationship: start with base abundance, reduce per agent
+            const spawnPressure = CONFIG.plantEcology.spawnPressure;
+            const minResourceMultiplier = spawnPressure?.minResourceMultiplier ?? spawnPressure?.minSeedMultiplier ?? 1;
+            const pressureMultiplier = getSpawnPressureMultiplier(aliveCount, minResourceMultiplier);
+            const targetAbundance = CONFIG.resourceBaseAbundance * pressureMultiplier;
             maxResources = Math.floor(
               clamp(
-                CONFIG.resourceBaseAbundance - (aliveCount * CONFIG.resourceCompetition),
+                targetAbundance,
                 CONFIG.resourceScaleMinimum,
                 CONFIG.resourceScaleMaximum
               )
             );
-            
-            // Cull excess resources if population has grown (competition increases)
-            if (World.resources.length > maxResources) {
-              const excess = World.resources.length - maxResources;
-              // Remove oldest/least fertile resources
-              World.resources.splice(-excess, excess);
-              console.log(`🔪 Culled ${excess} excess resources due to competition (${aliveCount} agents)`);
-            }
           }
-          
+
+          if (World.resources.length > maxResources) {
+            const excess = World.resources.length - maxResources;
+            World.resources.splice(-excess, excess);
+            console.log(`🔪 Culled ${excess} excess resources due to competition (${aliveCount} agents)`);
+          }
+
           // Seed dispersal (resources spawn near existing ones)
-          const seedLocation = attemptSeedDispersal(World.resources, FertilityField, globalTick, dt);
+          const seedLocation = attemptSeedDispersal(World.resources, FertilityField, globalTick, dt, aliveCount);
           if (seedLocation && World.resources.length < maxResources) {
             const newResource = new Resource(seedLocation.x, seedLocation.y, CONFIG.resourceRadius);
             World.resources.push(newResource);
             console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
           }
-          
+
           // Spontaneous growth (resources appear in fertile soil)
-          const growthLocation = attemptSpontaneousGrowth(FertilityField, dt);
+          const growthLocation = attemptSpontaneousGrowth(FertilityField, dt, aliveCount);
           if (growthLocation && World.resources.length < maxResources) {
             const newResource = new Resource(growthLocation.x, growthLocation.y, CONFIG.resourceRadius);
             World.resources.push(newResource);
             console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
           }
-          
+
           // Update fertility grid (recovery + population pressure)
-          const aliveCount = World.bundles.filter(b => b.alive).length;
           FertilityField.update(dt, aliveCount, globalTick);
         }
 

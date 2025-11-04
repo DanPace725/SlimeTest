@@ -61,6 +61,15 @@ export const CONFIG = {
     populationPressure: true,       // Enable population-based degradation
     pressurePerAgent: 0.01,         // Global fertility drain per agent per second
     pressureThreshold: 6,           // Agents above this cause pressure
+
+    // Spawn pressure (reduce growth when population high)
+    spawnPressure: {
+      startAgents: 8,               // Agents before pressure kicks in
+      maxAgents: 24,                // Population where pressure is maxed
+      minSeedMultiplier: 0.35,      // Minimum fraction of seed chance
+      minGrowthMultiplier: 0.2,     // Minimum fraction of spontaneous growth chance
+      minResourceMultiplier: 0.3    // Minimum fraction of resource abundance cap
+    }
   },
 
   // === Adaptive Reward System ===
@@ -176,6 +185,7 @@ export const CONFIG = {
     childStartChi: 12,                // Child's starting χ
     cooldown: 300,                    // Ticks between mitosis attempts (5 seconds at 60fps)
     maxAgents: 32,                    // Hard population cap
+    maxAliveAgents: 24,               // Target cap for living agents
     spawnOffset: 60,                  // Distance from parent to spawn child (pixels)
     inheritHeading: true,             // Child inherits parent's heading (with noise)
     headingNoise: 0.8,                // Radians of noise added to inherited heading

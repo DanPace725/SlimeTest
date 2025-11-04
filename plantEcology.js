@@ -3,6 +3,29 @@
 
 import { CONFIG } from './config.js';
 
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+function resolveSpawnPressureConfig() {
+  return CONFIG.plantEcology?.spawnPressure || null;
+}
+
+export function getSpawnPressureMultiplier(aliveCount, minMultiplier = 0) {
+  const pressure = resolveSpawnPressureConfig();
+  if (!pressure) return 1;
+
+  const start = pressure.startAgents ?? 0;
+  const maxAgents = pressure.maxAgents ?? start;
+  const clampedMin = clamp(minMultiplier, 0, 1);
+
+  if (aliveCount <= start || maxAgents <= start) {
+    return 1;
+  }
+
+  const span = Math.max(1, maxAgents - start);
+  const t = clamp((aliveCount - start) / span, 0, 1);
+  return 1 - t * (1 - clampedMin);
+}
+
 /**
  * Fertility Grid - tracks soil quality across the world
  * Similar to trail grid but represents nutrient availability
@@ -252,7 +275,7 @@ export class FertilityGrid {
 /**
  * Seed dispersal - resources can spawn near existing ones
  */
-export function attemptSeedDispersal(resources, fertilityGrid, globalTick, dt) {
+export function attemptSeedDispersal(resources, fertilityGrid, globalTick, dt, aliveCount = 0) {
   const config = CONFIG.plantEcology;
   if (!config.enabled || resources.length === 0) return null;
 
@@ -260,7 +283,10 @@ export function attemptSeedDispersal(resources, fertilityGrid, globalTick, dt) {
   const parent = resources[Math.floor(Math.random() * resources.length)];
 
   // Check spawn chance
-  const seedChance = Math.min(1, config.seedChance * dt);
+  const spawnPressure = resolveSpawnPressureConfig();
+  const minSeedMultiplier = spawnPressure?.minSeedMultiplier ?? spawnPressure?.minResourceMultiplier ?? 1;
+  const seedMultiplier = getSpawnPressureMultiplier(aliveCount, minSeedMultiplier);
+  const seedChance = Math.min(1, config.seedChance * seedMultiplier * dt);
   if (Math.random() > seedChance) return null;
   
   // Find location near parent
@@ -291,12 +317,15 @@ export function attemptSeedDispersal(resources, fertilityGrid, globalTick, dt) {
 /**
  * Spontaneous growth - resources can appear in fertile soil
  */
-export function attemptSpontaneousGrowth(fertilityGrid, dt) {
+export function attemptSpontaneousGrowth(fertilityGrid, dt, aliveCount = 0) {
   const config = CONFIG.plantEcology;
   if (!config.enabled) return null;
 
   // Check growth chance
-  const growthChance = Math.min(1, config.growthChance * dt);
+  const spawnPressure = resolveSpawnPressureConfig();
+  const minGrowthMultiplier = spawnPressure?.minGrowthMultiplier ?? spawnPressure?.minSeedMultiplier ?? 1;
+  const growthMultiplier = getSpawnPressureMultiplier(aliveCount, minGrowthMultiplier);
+  const growthChance = Math.min(1, config.growthChance * growthMultiplier * dt);
   if (Math.random() > growthChance) return null;
   
   // Find fertile location
