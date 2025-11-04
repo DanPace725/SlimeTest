@@ -228,8 +228,8 @@ import { TrainingUI } from './trainingUI.js';
         this.alive = true;
         this.id = id;
 
-        // sensing
-        this.extendedSensing = false;
+        // sensing (extended by default for better foraging)
+        this.extendedSensing = true;
         this.currentSensoryRange = CONFIG.aiSensoryRangeBase;
         this._targetSensoryRange = CONFIG.aiSensoryRangeBase;
 
@@ -875,77 +875,68 @@ import { TrainingUI } from './trainingUI.js';
         ctx.restore();
       };
 
-      // Bar labels
+      // HUD Header with bar legend
       ctx.fillStyle = "#888";
-      ctx.font = "9px ui-mono, monospace";
-      ctx.fillText("Frustration", 10, 12);
-      ctx.fillText("Hunger", 73, 12);
+      ctx.font = "10px ui-mono, monospace";
+      ctx.fillText("Frustration │ Hunger", 145, 12);
       ctx.font = "12px ui-mono, monospace";
 
       // Agent 1
       const b1 = World.bundles[0];
       ctx.fillStyle = "#00ffff";
-      const sense1 = b1.extendedSensing ? `SENSE:${Math.round(b1.currentSensoryRange)}px` : `sense:${CONFIG.aiSensoryRangeBase}px`;
-      let controller1 = "🧠 HEURISTIC";
-      if (b1.useController && b1.controller) {
-        if (loadedPolicyInfo) {
-          controller1 = `🤖 ${loadedPolicyInfo.filename.replace('.json', '').substring(0, 15)}`;
-        } else {
-          controller1 = b1.controller.constructor.name === "LinearPolicyController" ? "🤖 POLICY" : "🎮 CTRL";
-        }
-      }
+      let controller1 = b1.useController && b1.controller 
+        ? (loadedPolicyInfo ? `🤖 ${loadedPolicyInfo.filename.replace('.json', '').substring(0, 12)}` 
+                            : (b1.controller.constructor.name === "LinearPolicyController" ? "🤖 POLICY" : "🎮 CTRL"))
+        : "🧠 AI";
       const vis1 = b1.visible ? "👁" : "🚫";
       ctx.fillText(
-        `${vis1} Agent1 [1]: χ=${b1.chi.toFixed(1)} ${b1.alive ? "ALIVE" : "DEAD"} ${sense1} | ${controller1} | credits: ${Ledger.getCredits(1).toFixed(2)}`,
+        `${vis1} A1[1]: χ${b1.chi.toFixed(1)} ${b1.alive ? "✓" : "✗"} sense:${Math.round(b1.currentSensoryRange)} ${controller1} cr:${Ledger.getCredits(1).toFixed(1)}`,
         10, 18
       );
-      bar(10, 22, 60, 3, b1.frustration, "#ff5555");
-      bar(73, 22, 60, 3, b1.hunger, "#ff8800");
+      bar(10, 22, 60, 4, b1.frustration, "#ff5555");
+      bar(73, 22, 60, 4, b1.hunger, "#ff8800");
 
       // Agent 2
       const b2 = World.bundles[1];
       ctx.fillStyle = "#ff00ff";
-      const sense2 = b2.extendedSensing ? `SENSE:${Math.round(b2.currentSensoryRange)}px` : `sense:${CONFIG.aiSensoryRangeBase}px`;
       const controller2 = b2.useController && b2.controller 
         ? (b2.controller.constructor.name === "LinearPolicyController" ? "🤖 POLICY" : "🎮 CTRL")
-        : "🧠 HEURISTIC";
+        : "🧠 AI";
       const vis2 = b2.visible ? "👁" : "🚫";
       ctx.fillText(
-        `${vis2} Agent2 [2]: χ=${b2.chi.toFixed(1)} ${b2.alive ? "ALIVE" : "DEAD"} ${sense2} | ${controller2} | credits: ${Ledger.getCredits(2).toFixed(2)}`,
+        `${vis2} A2[2]: χ${b2.chi.toFixed(1)} ${b2.alive ? "✓" : "✗"} sense:${Math.round(b2.currentSensoryRange)} ${controller2} cr:${Ledger.getCredits(2).toFixed(1)}`,
         10, 36
       );
-      bar(10, 40, 60, 3, b2.frustration, "#ff55ff");
-      bar(73, 40, 60, 3, b2.hunger, "#ff8800");
+      bar(10, 40, 60, 4, b2.frustration, "#ff55ff");
+      bar(73, 40, 60, 4, b2.hunger, "#ff8800");
 
       // Agent 3
       const b3 = World.bundles[2];
       ctx.fillStyle = "#ffff00";
-      const sense3 = b3.extendedSensing ? `SENSE:${Math.round(b3.currentSensoryRange)}px` : `sense:${CONFIG.aiSensoryRangeBase}px`;
       const controller3 = b3.useController && b3.controller 
         ? (b3.controller.constructor.name === "LinearPolicyController" ? "🤖 POLICY" : "🎮 CTRL")
-        : "🧠 HEURISTIC";
+        : "🧠 AI";
       const vis3 = b3.visible ? "👁" : "🚫";
       ctx.fillText(
-        `${vis3} Agent3 [3]: χ=${b3.chi.toFixed(1)} ${b3.alive ? "ALIVE" : "DEAD"} ${sense3} | ${controller3} | credits: ${Ledger.getCredits(3).toFixed(2)}`,
+        `${vis3} A3[3]: χ${b3.chi.toFixed(1)} ${b3.alive ? "✓" : "✗"} sense:${Math.round(b3.currentSensoryRange)} ${controller3} cr:${Ledger.getCredits(3).toFixed(1)}`,
         10, 54
       );
-      bar(10, 58, 60, 3, b3.frustration, "#ffff55");
-      bar(73, 58, 60, 3, b3.hunger, "#ff8800");
+      bar(10, 58, 60, 4, b3.frustration, "#ffff55");
+      bar(73, 58, 60, 4, b3.hunger, "#ff8800");
 
       // Agent 4
       const b4 = World.bundles[3];
       ctx.fillStyle = "#ff8800";
-      const sense4 = b4.extendedSensing ? `SENSE:${Math.round(b4.currentSensoryRange)}px` : `sense:${CONFIG.aiSensoryRangeBase}px`;
       const controller4 = b4.useController && b4.controller 
         ? (b4.controller.constructor.name === "LinearPolicyController" ? "🤖 POLICY" : "🎮 CTRL")
-        : "🧠 HEURISTIC";
+        : "🧠 AI";
       const vis4 = b4.visible ? "👁" : "🚫";
       ctx.fillText(
-        `${vis4} Agent4 [4]: χ=${b4.chi.toFixed(1)} ${b4.alive ? "ALIVE" : "DEAD"} ${sense4} | ${controller4} | credits: ${Ledger.getCredits(4).toFixed(2)}`,
+        `${vis4} A4[4]: χ${b4.chi.toFixed(1)} ${b4.alive ? "✓" : "✗"} sense:${Math.round(b4.currentSensoryRange)} ${controller4} cr:${Ledger.getCredits(4).toFixed(1)}`,
         10, 72
       );
-      bar(10, 76, 60, 3, b4.frustration, "#ff8855");
-      bar(73, 76, 60, 3, b4.hunger, "#ff8800");
+      bar(10, 76, 60, 4, b4.frustration, "#ff8855");
+      bar(73, 76, 60, 4, b4.hunger, "#ff8800");
   
       // General info
       ctx.fillStyle = "#00ff88";

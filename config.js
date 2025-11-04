@@ -46,7 +46,7 @@ export const CONFIG = {
   depositPerSec: 2.5,
   evapPerSec: 0.015,
   diffusePerSec: 0.08,
-  enableDiffusion: true,
+  enableDiffusion: false,             // Diffusion off by default for cleaner trails
   renderTrail: true,
 
   // === Residuals (public-good reuse) ===
@@ -59,7 +59,7 @@ export const CONFIG = {
   ownTrailGraceAge: 60,            // Ticks before own trail is "safe" to cross (0 = always penalize)
 
   // === Autonomy ===
-  autoMove: false,
+  autoMove: true,                     // Start in auto mode (no manual control)
 
   // === Sensing (smooth + delta-paid) ===
   aiSensoryRangeBase: 220,
