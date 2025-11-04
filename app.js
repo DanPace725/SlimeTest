@@ -1,7 +1,7 @@
 // Slime-Bundle v0.5 — Learning system with pluggable controllers
 // Controls: [WASD/Arrows]=move (Agent 1 when MANUAL) | [A]=auto toggle | [S]=toggle extended sensing
-// [Space]=pause [R]=reset [C]=+5χ all [T]=trail on/off [X]=clear trail [F]=diffusion on/off
-// [1-4]=toggle individual agents | [V]=toggle all agents visibility
+// [G]=scent gradient viz | [Space]=pause [R]=reset [C]=+5χ all [T]=trail on/off [X]=clear trail [F]=diffusion on/off
+// [1-4]=toggle individual agents | [V]=toggle all agents visibility | [L]=training UI
 
 import { CONFIG } from './config.js';
 import { HeuristicController, LinearPolicyController } from './controllers.js';
@@ -9,6 +9,7 @@ import { buildObservation } from './observations.js';
 import { RewardTracker, EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from './rewards.js';
 import { CEMLearner, TrainingManager } from './learner.js';
 import { TrainingUI } from './trainingUI.js';
+import { visualizeScentGradient, visualizeScentHeatmap } from './scentGradient.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -29,6 +30,8 @@ import { TrainingUI } from './trainingUI.js';
   
     // ---------- Input ----------
     const held = new Set();
+    let showScentGradient = false; // Toggle for scent gradient visualization
+    
     window.addEventListener("keydown", (e) => {
       const k = e.key.toLowerCase();
       if (["arrowup","w","arrowdown","s","arrowleft","a","arrowright","d"].includes(k)) held.add(k);
@@ -41,6 +44,7 @@ import { TrainingUI } from './trainingUI.js';
       else if (e.code === "KeyF") { CONFIG.enableDiffusion = !CONFIG.enableDiffusion; }
       else if (e.code === "KeyA") { CONFIG.autoMove = !CONFIG.autoMove; }
       else if (e.code === "KeyL") { if (window.trainingUI) window.trainingUI.toggle(); }
+      else if (e.code === "KeyG") { showScentGradient = !showScentGradient; } // Toggle scent gradient visualization
       // Toggle individual agents visibility
       else if (e.code === "Digit1") { if (World.bundles[0]) World.bundles[0].visible = !World.bundles[0].visible; }
       else if (e.code === "Digit2") { if (World.bundles[1]) World.bundles[1].visible = !World.bundles[1].visible; }
@@ -68,7 +72,7 @@ import { TrainingUI } from './trainingUI.js';
   
     // ---------- Learning System ----------
     let learningMode = 'play'; // 'play' or 'train'
-    const learner = new CEMLearner(15, 3); // 15 obs dims, 3 action dims
+    const learner = new CEMLearner(23, 3); // 23 obs dims (was 15, now includes scent+density), 3 action dims
     const episodeManager = new EpisodeManager();
     let trainingManager = null;
     let currentTrainingPolicy = null;
@@ -405,7 +409,7 @@ import { TrainingUI } from './trainingUI.js';
         // === ROUTING: Controller vs Heuristic AI ===
         if (this.useController && this.controller) {
           // Use controller (learned or wrapped heuristic)
-          const obs = buildObservation(this, resource, Trail, globalTick);
+          const obs = buildObservation(this, resource, Trail, globalTick, World.resources);
           const action = this.controller.act(obs);
           this.lastAction = action; // Store for display
           const result = this.applyAction(action, dt);
@@ -961,10 +965,12 @@ import { TrainingUI } from './trainingUI.js';
           10, 110
         );
         ctx.fillStyle = "#00ff88";
-        ctx.fillText(`[WASD]=move [A]=auto [S]=extSense [Space]=pause [R]=reset [C]=+5χ [T]=trail [X]=clear [F]=diffuse [L]=train`, 10, 126);
+        const scentStatus = showScentGradient ? "ON" : "OFF";
+        ctx.fillText(`[WASD]=move [A]=auto [S]=extSense [G]=scent(${scentStatus}) [Space]=pause [R]=reset [C]=+5χ [T]=trail [X]=clear [F]=diffuse [L]=train`, 10, 126);
         ctx.fillText(`[1-4]=toggle agent [V]=toggle all agents`, 10, 142);
       } else {
-        ctx.fillText(`[WASD]=move [A]=auto [S]=extSense [Space]=pause [R]=reset [C]=+5χ [T]=trail [X]=clear [F]=diffuse [L]=train`, 10, 110);
+        const scentStatus = showScentGradient ? "ON" : "OFF";
+        ctx.fillText(`[WASD]=move [A]=auto [S]=extSense [G]=scent(${scentStatus}) [Space]=pause [R]=reset [C]=+5χ [T]=trail [X]=clear [F]=diffuse [L]=train`, 10, 110);
         ctx.fillText(`[1-4]=toggle agent [V]=toggle all agents`, 10, 126);
       }
       ctx.restore();
@@ -1055,6 +1061,12 @@ import { TrainingUI } from './trainingUI.js';
       // draw
       ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
       Trail.draw();
+      
+      // Draw scent gradient visualization if enabled
+      if (showScentGradient && CONFIG.scentGradient.enabled) {
+        visualizeScentHeatmap(ctx, World.resources, 40);
+        visualizeScentGradient(ctx, World.resources, 80);
+      }
       
       // Draw all resources
       World.resources.forEach(res => res.draw(ctx));
@@ -1165,7 +1177,8 @@ import { TrainingUI } from './trainingUI.js';
           const stepReward = bundle.rewardTracker.computeStepReward(
             collectedResource,
             chiSpent,
-            provenanceCredit
+            provenanceCredit,
+            World.resources  // Pass resources for gradient climbing reward
           );
           totalReward += stepReward;
         }

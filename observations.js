@@ -2,19 +2,22 @@
 // Constructs normalized obs vector from bundle state
 
 import { CONFIG } from './config.js';
+import { getScentGradient, getFoodDensitySensing } from './scentGradient.js';
 
 /**
  * Build observation vector for a bundle
  * Returns both raw object and flat normalized vector
  * 
- * Observation components (15 dims total):
+ * Observation components (23 dims total):
  * - χ state: [chi_norm, frustration, alive]  (3)
  * - Motion: [vx_norm, vy_norm]               (2)
  * - Walls: [nx, ny, edge_mag]                (3)
  * - Resource: [res_dx, res_dy, res_visible]  (3)
  * - Trails: [trail_mean, trail_max, tdir_x, tdir_y] (4)
+ * - Scent Gradient: [intensity, grad_x, grad_y] (3) - NEW!
+ * - Food Density: [near, mid, far, dens_dir_x, dens_dir_y] (5) - NEW!
  */
-export function buildObservation(bundle, resource, Trail, globalTick) {
+export function buildObservation(bundle, resource, Trail, globalTick, resources = []) {
   const obs = {};
   
   // === χ State ===
@@ -46,6 +49,22 @@ export function buildObservation(bundle, resource, Trail, globalTick) {
   obs.trailDirX = trailInfo.dirX;
   obs.trailDirY = trailInfo.dirY;
   
+  // === Scent Gradient (NEW!) ===
+  // Get scent gradient from all resources
+  const scentInfo = getScentGradient(bundle.x, bundle.y, resources);
+  obs.scentIntensity = scentInfo.intensity;
+  obs.scentGradX = scentInfo.gradientX;
+  obs.scentGradY = scentInfo.gradientY;
+  
+  // === Food Density Sensing (NEW!) ===
+  // Multi-scale sensing of food distribution
+  const densityInfo = getFoodDensitySensing(bundle.x, bundle.y, resources);
+  obs.densityNear = densityInfo.near;
+  obs.densityMid = densityInfo.mid;
+  obs.densityFar = densityInfo.far;
+  obs.densityDirX = densityInfo.dirX;
+  obs.densityDirY = densityInfo.dirY;
+  
   // === Build flat vector ===
   obs.vector = [
     obs.chi,
@@ -62,7 +81,15 @@ export function buildObservation(bundle, resource, Trail, globalTick) {
     obs.trailMean,
     obs.trailMax,
     obs.trailDirX,
-    obs.trailDirY
+    obs.trailDirY,
+    obs.scentIntensity,
+    obs.scentGradX,
+    obs.scentGradY,
+    obs.densityNear,
+    obs.densityMid,
+    obs.densityFar,
+    obs.densityDirX,
+    obs.densityDirY
   ];
   
   // Store resource reference for heuristic controller

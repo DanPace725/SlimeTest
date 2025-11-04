@@ -105,6 +105,26 @@ export const CONFIG = {
   hungerSenseAmp: 1.5,                // Multiplier on sensory range bias when hungry (max)
   hungerSurgeAmp: 1.3,                // Multiplier on speed surge when hungry (max)
 
+  // === Resource Scent Gradient System ===
+  // Resources emit "scent" that decreases with distance, giving agents a gradient to climb
+  scentGradient: {
+    enabled: true,                    // Enable scent gradient system
+    maxRange: 400,                    // Maximum distance scent can be detected (pixels)
+    falloffType: 'inverse-square',    // 'linear', 'inverse', 'inverse-square', 'exponential'
+    strength: 1.0,                    // Base strength of scent at resource location
+    
+    // Distance-based reward settings
+    rewardEnabled: true,              // Give rewards for getting closer to food
+    rewardScale: 0.5,                 // Scaling factor for distance rewards (χ per pixel closer)
+    rewardUpdateInterval: 10,         // Check distance every N ticks (avoid per-frame noise)
+    
+    // Multi-scale density sensing
+    densitySensingEnabled: true,      // Enable food density sensing in observations
+    densityRadiusNear: 200,           // Near field radius (pixels)
+    densityRadiusMid: 400,            // Mid field radius (pixels)
+    densityRadiusFar: 600,            // Far field radius (pixels)
+  },
+
   // === HUD ===
   hud: { 
     show: true,
@@ -114,7 +134,7 @@ export const CONFIG = {
   // === Learning System ===
   learning: {
     // Observation vector settings
-    observationDims: 15,          // total observation vector size
+    observationDims: 23,          // total observation vector size (was 15, now includes scent+density)
     normalizeObs: true,           // normalize observations to [-1, 1]
     
     // Action space
@@ -129,8 +149,9 @@ export const CONFIG = {
       stuck: -0.8,                // -R when stuck near walls
       idle: -0.2,                 // -R per tick when idle
       explore: 10.0,              // +R for unique trail coverage
-      provenanceCredit: 1,      // +R when others reuse your trails
+      provenanceCredit: 1,        // +R when others reuse your trails
       death: -50.0,               // -R when χ reaches 0
+      gradientClimb: 2.0,         // +R per pixel moved closer to food (gradient climbing)
     },
     
     // Episode settings

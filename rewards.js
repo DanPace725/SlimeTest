@@ -91,6 +91,7 @@ export class RewardTracker {
       explore: 0,
       provenance: 0,
       death: 0,
+      gradientClimb: 0,  // NEW: reward for getting closer to food
     };
     
     // State tracking
@@ -99,13 +100,22 @@ export class RewardTracker {
     this.stuckTicks = 0;
     this.idleTicks = 0;
     this.visitedCells = new Set(); // for exploration tracking
+    
+    // Distance tracking for gradient climbing reward
+    this.lastNearestFoodDist = Infinity;
+    this.distanceCheckCounter = 0; // Only check every N ticks to reduce noise
   }
   
   /**
    * Compute reward for current step
    * Called after bundle.update()
+   * 
+   * @param {boolean} collectedResource - Did agent collect a resource this step?
+   * @param {number} chiSpent - Chi spent this step
+   * @param {number} provenanceCredit - Credits from others using your trails
+   * @param {Array} resources - Array of Resource objects (for distance tracking)
    */
-  computeStepReward(collectedResource, chiSpent, provenanceCredit) {
+  computeStepReward(collectedResource, chiSpent, provenanceCredit, resources = []) {
     this.stepReward = 0;
     this.episodeLength++;
     
@@ -181,7 +191,44 @@ export class RewardTracker {
       this.rewards.provenance += r;
     }
     
-    // === 8. Death Penalty ===
+    // === 8. Gradient Climbing Reward (NEW!) ===
+    // Reward for getting closer to nearest food (only check periodically to reduce noise)
+    if (CONFIG.scentGradient?.rewardEnabled && resources && resources.length > 0) {
+      this.distanceCheckCounter++;
+      const checkInterval = CONFIG.scentGradient.rewardUpdateInterval || 10;
+      
+      if (this.distanceCheckCounter >= checkInterval) {
+        this.distanceCheckCounter = 0;
+        
+        // Find distance to nearest food
+        let nearestDist = Infinity;
+        for (const res of resources) {
+          const dx = res.x - this.bundle.x;
+          const dy = res.y - this.bundle.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+          }
+        }
+        
+        // Calculate distance change (negative = got closer = good!)
+        if (this.lastNearestFoodDist !== Infinity) {
+          const distanceChange = nearestDist - this.lastNearestFoodDist;
+          
+          // Reward for getting closer (distanceChange is negative when approaching)
+          if (distanceChange < 0) {
+            const pixelsCloser = Math.abs(distanceChange);
+            const r = CONFIG.learning.rewards.gradientClimb * pixelsCloser;
+            this.stepReward += r;
+            this.rewards.gradientClimb += r;
+          }
+        }
+        
+        this.lastNearestFoodDist = nearestDist;
+      }
+    }
+    
+    // === 9. Death Penalty ===
     if (!this.bundle.alive && this.lastChi > 0) {
       const r = CONFIG.learning.rewards.death;
       this.stepReward += r;
