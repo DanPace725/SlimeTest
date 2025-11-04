@@ -189,7 +189,13 @@ export const CONFIG = {
     spawnOffset: 60,                  // Distance from parent to spawn child (pixels)
     inheritHeading: true,             // Child inherits parent's heading (with noise)
     headingNoise: 0.8,                // Radians of noise added to inherited heading
-    
+
+    // Discrete budding reproduction when χ is very high
+    buddingThreshold: 400,            // χ required to trigger budding split
+    buddingShare: 0.5,                // Fraction of parent's χ transferred to budded child
+    buddingOffset: 20,                // Random jitter radius for budding spawn (pixels)
+    buddingRespectCooldown: true,     // Reuse cooldown before another budding/mitosis event
+
     // Population dynamics
     respectCarryingCapacity: true,    // Integrate with resource ecology
     carryingCapacityMultiplier: 1.5,  // Allow population = resources × multiplier

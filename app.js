@@ -74,6 +74,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
     // ---------- Helpers ----------
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const mix = (a,b,t)=>a+(b-a)*t;
+    const randomRange = (min, max) => Math.random() * (max - min) + min;
     const smoothstep = (e0,e1,x)=> {
       const t = clamp((x - e0) / Math.max(1e-6, e1 - e0), 0, 1);
       return t * t * (3 - 2 * t);
@@ -832,16 +833,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       /**
        * Check if this agent can perform mitosis
        */
-      canMitosis() {
-        if (!CONFIG.mitosis.enabled) return false;
-        if (!this.alive) return false;
-        if (this.chi < CONFIG.mitosis.threshold) return false;
-        
-        // Check cooldown
-        const ticksSinceLastMitosis = globalTick - this.lastMitosisTick;
-        if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
-        
-        // Check population cap (count only ALIVE agents, not dead ones!)
+      meetsPopulationLimits() {
         const aliveCount = World.bundles.filter(b => b.alive).length;
         const aliveLimit = Math.min(
           CONFIG.mitosis.maxAgents,
@@ -849,7 +841,6 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         );
         if (aliveCount >= aliveLimit) return false;
 
-        // Check carrying capacity (if enabled)
         if (CONFIG.mitosis.respectCarryingCapacity) {
           const maxPopulation = Math.max(
             aliveLimit,
@@ -859,8 +850,62 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           );
           if (aliveCount >= maxPopulation) return false;
         }
-        
+
         return true;
+      }
+
+      canMitosis() {
+        if (!CONFIG.mitosis.enabled) return false;
+        if (!this.alive) return false;
+        if (this.chi < CONFIG.mitosis.threshold) return false;
+
+        const ticksSinceLastMitosis = globalTick - this.lastMitosisTick;
+        if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
+
+        return this.meetsPopulationLimits();
+      }
+
+      canBud() {
+        if (!CONFIG.mitosis.enabled) return false;
+        if (!this.alive) return false;
+
+        const buddingThreshold = CONFIG.mitosis.buddingThreshold || Infinity;
+        if (this.chi < buddingThreshold) return false;
+
+        if (CONFIG.mitosis.buddingRespectCooldown !== false) {
+          const ticksSinceLastMitosis = globalTick - this.lastMitosisTick;
+          if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
+        }
+
+        return this.meetsPopulationLimits();
+      }
+
+      spawnChild(childX, childY, childChi, heading, eventLabel) {
+        const childId = World.nextAgentId++;
+        const child = new Bundle(
+          childX,
+          childY,
+          this.size,
+          childChi,
+          childId,
+          this.useController
+        );
+
+        child.heading = heading;
+        child._lastDirX = Math.cos(heading);
+        child._lastDirY = Math.sin(heading);
+        child.controller = this.controller;
+        child.extendedSensing = this.extendedSensing;
+        child.generation = this.generation + 1;
+        child.parentId = this.id;
+        child.lastMitosisTick = globalTick;
+
+        World.bundles.push(child);
+        World.totalBirths++;
+
+        console.log(`🧫 ${eventLabel}! Agent ${this.id} (gen ${this.generation}) → Agent ${child.id} (gen ${child.generation}) | Pop: ${World.bundles.length}`);
+
+        return child;
       }
 
       /**
@@ -870,54 +915,54 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       doMitosis() {
         if (!this.canMitosis()) return null;
         
-        // Pay reproduction cost
         this.chi -= CONFIG.mitosis.cost;
-        
-        // Calculate spawn position (offset from parent)
-        const angle = CONFIG.mitosis.inheritHeading 
+
+        const angle = CONFIG.mitosis.inheritHeading
           ? this.heading + (Math.random() - 0.5) * CONFIG.mitosis.headingNoise
           : Math.random() * Math.PI * 2;
-        
+
         const offset = CONFIG.mitosis.spawnOffset;
-        let childX = this.x + Math.cos(angle) * offset;
-        let childY = this.y + Math.sin(angle) * offset;
-        
-        // Keep child in bounds
         const half = this.size / 2;
-        childX = clamp(childX, half, innerWidth - half);
-        childY = clamp(childY, half, innerHeight - half);
-        
-        // Generate new ID (use next available)
-        const childId = World.nextAgentId++;
-        
-        // Create child
-        const child = new Bundle(
-          childX, childY,
-          this.size,
+        const childX = clamp(this.x + Math.cos(angle) * offset, half, innerWidth - half);
+        const childY = clamp(this.y + Math.sin(angle) * offset, half, innerHeight - half);
+
+        const child = this.spawnChild(
+          childX,
+          childY,
           CONFIG.mitosis.childStartChi,
-          childId,
-          this.useController
+          angle,
+          "Mitosis"
         );
-        
-        // Inherit properties from parent
-        child.heading = angle;
-        child._lastDirX = Math.cos(angle);
-        child._lastDirY = Math.sin(angle);
-        child.controller = this.controller; // Share policy (if any)
-        child.extendedSensing = this.extendedSensing;
-        child.generation = this.generation + 1;
-        child.parentId = this.id;
-        child.lastMitosisTick = globalTick; // Prevent immediate re-mitosis
-        
-        // Update parent's mitosis tracking
+
         this.lastMitosisTick = globalTick;
-        
-        // Add child to world
-        World.bundles.push(child);
-        World.totalBirths++;
-        
-        console.log(`🧫 Mitosis! Agent ${this.id} (gen ${this.generation}) → Agent ${child.id} (gen ${child.generation}) | Pop: ${World.bundles.length}`);
-        
+
+        return child;
+      }
+
+      doBudding() {
+        if (!this.canBud()) return null;
+
+        const share = clamp(
+          CONFIG.mitosis.buddingShare ?? 0.5,
+          0.05,
+          0.95
+        );
+        const childChi = this.chi * share;
+        this.chi *= (1 - share);
+
+        const jitter = CONFIG.mitosis.buddingOffset ?? 20;
+        const half = this.size / 2;
+        const childX = clamp(this.x + randomRange(-jitter, jitter), half, innerWidth - half);
+        const childY = clamp(this.y + randomRange(-jitter, jitter), half, innerHeight - half);
+
+        const angle = CONFIG.mitosis.inheritHeading
+          ? this.heading
+          : Math.random() * Math.PI * 2;
+
+        const child = this.spawnChild(childX, childY, childChi, angle, "Budding");
+
+        this.lastMitosisTick = globalTick;
+
         return child;
       }
 
@@ -925,7 +970,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
        * Attempt mitosis if conditions are met (called each frame)
        */
       attemptMitosis() {
-        if (this.canMitosis()) {
+        if (this.canBud()) {
+          this.doBudding();
+        } else if (this.canMitosis()) {
           this.doMitosis();
         }
       }
