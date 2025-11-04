@@ -39,7 +39,15 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       if (["arrowup","w","arrowdown","s","arrowleft","a","arrowright","d"].includes(k)) held.add(k);
       if (e.code === "Space") { World.paused = !World.paused; e.preventDefault(); }
       else if (e.code === "KeyR") { World.reset(); }
-      else if (e.code === "KeyC") { World.bundles.forEach(b => { b.chi += 5; b.alive = true; }); }
+      else if (e.code === "KeyC") { 
+        World.bundles.forEach(b => { 
+          b.chi += 5; 
+          b.alive = true;
+          // Reset decay state when reviving
+          b.deathTick = -1;
+          b.decayProgress = 0;
+        }); 
+      }
       else if (e.code === "KeyS") { World.bundles.forEach(b => { b.extendedSensing = !b.extendedSensing; }); }
       else if (e.code === "KeyT") { CONFIG.renderTrail = !CONFIG.renderTrail; }
       else if (e.code === "KeyX") { Trail.clear(); }
@@ -327,6 +335,11 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         this.lastMitosisTick = 0; // Last tick when mitosis occurred
         this.generation = 0; // Generation counter (0 = original)
         this.parentId = null; // ID of parent (null for originals)
+        
+        // decay tracking
+        this.deathTick = -1; // Tick when agent died (-1 = not dead)
+        this.decayProgress = 0; // 0 to 1, how much decayed
+        this.chiAtDeath = 0; // Chi remaining when died (for recycling)
       }
   
       computeSensoryRange(dt) {
@@ -547,7 +560,12 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
   
         // Pay costs
         this.chi = Math.max(0, this.chi - chiSpend);
-        if (this.chi === 0) this.alive = false;
+        if (this.chi === 0 && this.alive) {
+          this.alive = false;
+          // Track death for decay system
+          this.deathTick = globalTick;
+          this.chiAtDeath = 0; // Already spent all chi
+        }
       }
 
       updateHunger(dt) {
@@ -669,10 +687,29 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           ctx.restore();
         }
 
-        // body
-        ctx.fillStyle = color;
-        const half = this.size / 2;
-        ctx.fillRect(this.x - half, this.y - half, this.size, this.size);
+        // body (with decay effects if dead)
+        ctx.save();
+        
+        // Apply decay visual effects
+        if (!this.alive && CONFIG.decay.enabled && CONFIG.decay.visualFade) {
+          // Fade and shrink based on decay progress
+          const fade = 1 - this.decayProgress;
+          ctx.globalAlpha = fade * 0.7; // Max 70% opacity when fresh
+          
+          // Change color to brown/gray as it decays
+          const decayColorMix = this.decayProgress;
+          ctx.fillStyle = `rgba(60, 50, 40, ${fade})`; // Dark brown decay color
+        } else {
+          ctx.fillStyle = color;
+        }
+        
+        // Shrink size as it decays
+        const decayScale = this.alive ? 1.0 : (1.0 - this.decayProgress * 0.6); // Shrink to 40% of original
+        const effectiveSize = this.size * decayScale;
+        const half = effectiveSize / 2;
+        ctx.fillRect(this.x - half, this.y - half, effectiveSize, effectiveSize);
+        
+        ctx.restore();
         
         // Controller label above agent
         if (this.useController && this.controller) {
@@ -804,15 +841,16 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         const ticksSinceLastMitosis = globalTick - this.lastMitosisTick;
         if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
         
-        // Check population cap
-        if (World.bundles.length >= CONFIG.mitosis.maxAgents) return false;
+        // Check population cap (count only ALIVE agents, not dead ones!)
+        const aliveCount = World.bundles.filter(b => b.alive).length;
+        if (aliveCount >= CONFIG.mitosis.maxAgents) return false;
         
         // Check carrying capacity (if enabled)
         if (CONFIG.mitosis.respectCarryingCapacity) {
           const maxPopulation = Math.floor(
             World.resources.length * CONFIG.mitosis.carryingCapacityMultiplier
           );
-          if (World.bundles.length >= maxPopulation) return false;
+          if (aliveCount >= maxPopulation) return false;
         }
         
         return true;
@@ -883,6 +921,49 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         if (this.canMitosis()) {
           this.doMitosis();
         }
+      }
+
+      /**
+       * Update decay for dead agents
+       * Returns true if fully decayed (ready for removal)
+       */
+      updateDecay(dt, fertilityGrid) {
+        if (!CONFIG.decay.enabled) return false;
+        if (this.alive) return false;
+        
+        // Initialize decay tracking if not set (defensive check)
+        if (typeof this.deathTick !== 'number') this.deathTick = -1;
+        if (typeof this.decayProgress !== 'number') this.decayProgress = 0;
+        if (typeof this.chiAtDeath !== 'number') this.chiAtDeath = 0;
+        
+        // Initialize death tracking if not set
+        if (this.deathTick < 0) {
+          this.deathTick = globalTick;
+        }
+        
+        // Calculate decay progress (0 to 1)
+        const ticksSinceDeath = globalTick - this.deathTick;
+        this.decayProgress = Math.min(1, ticksSinceDeath / CONFIG.decay.duration);
+        
+        // Release chi into fertility grid gradually
+        if (fertilityGrid && CONFIG.plantEcology.enabled && ticksSinceDeath % 10 === 0) {
+          const chiToRelease = this.chiAtDeath * (0.02); // Release 2% per interval
+          if (chiToRelease > 0 && !isNaN(chiToRelease)) {
+            const fertilityGain = chiToRelease * CONFIG.decay.fertilityBoost;
+            if (fertilityGain > 0 && !isNaN(fertilityGain)) {
+              fertilityGrid.addFertilityRadial(
+                this.x, 
+                this.y, 
+                CONFIG.decay.releaseRadius, 
+                fertilityGain
+              );
+              this.chiAtDeath = Math.max(0, this.chiAtDeath - chiToRelease);
+            }
+          }
+        }
+        
+        // Return true if fully decayed and ready for removal
+        return CONFIG.decay.removeAfterDecay && this.decayProgress >= 1.0;
       }
     }
   
@@ -988,11 +1069,28 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         // Initialize resource ecology
         this.resources = [];
         if (CONFIG.resourceDynamicCount) {
-          // Dynamic ecology: start with abundant resources, will decline to stable level
-          const initialCount = Math.floor(
-            CONFIG.resourceInitialMin + 
-            Math.random() * (CONFIG.resourceInitialMax - CONFIG.resourceInitialMin + 1)
-          );
+          // Calculate initial resource count
+          let initialCount;
+          
+          // If using plant ecology with agent-scaled resources, respect competition
+          if (CONFIG.plantEcology.enabled && CONFIG.resourceScaleWithAgents) {
+            const startingAgents = this.bundles.length;
+            initialCount = Math.floor(
+              clamp(
+                CONFIG.resourceBaseAbundance - (startingAgents * CONFIG.resourceCompetition),
+                CONFIG.resourceScaleMinimum,
+                CONFIG.resourceScaleMaximum
+              )
+            );
+            console.log(`🌱 Initial resources: ${initialCount} (${startingAgents} starting agents)`);
+          } else {
+            // Legacy: start with abundant resources, will decline to stable level
+            initialCount = Math.floor(
+              CONFIG.resourceInitialMin + 
+              Math.random() * (CONFIG.resourceInitialMax - CONFIG.resourceInitialMin + 1)
+            );
+          }
+          
           this.carryingCapacity = initialCount;
           this.resourcePressure = 0; // No depletion pressure at start
           
@@ -1038,6 +1136,19 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
 
       // Update resource ecology (carrying capacity model)
       updateEcology(dt) {
+        // If plant ecology is enabled, it handles all resource management!
+        if (CONFIG.plantEcology.enabled) {
+          // Plant ecology manages resources via fertility, seed dispersal, etc.
+          // Just update carrying capacity for mitosis population limits
+          const aliveCount = this.bundles.filter(b => b.alive).length;
+          this.carryingCapacity = Math.max(
+            CONFIG.resourceStableMin, 
+            Math.floor(this.resources.length * 1.2)  // Loose cap based on current resources
+          );
+          return;
+        }
+        
+        // Legacy system (only used when plant ecology disabled)
         if (!CONFIG.resourceDynamicCount) return; // Skip if using fixed count
         
         // Resource pressure decays slowly over time (ecosystem recovery)
@@ -1073,6 +1184,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
 
       // Handle resource collection with ecology effects
       onResourceCollected() {
+        // Plant ecology handles depletion via fertility system
+        if (CONFIG.plantEcology.enabled) return;
+        
+        // Legacy system only
         if (!CONFIG.resourceDynamicCount) return;
         
         // Increase depletion pressure (simulates ecosystem stress from harvesting)
@@ -1175,7 +1290,24 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       
       // Resource ecology info
       let resourceInfo = `resources: ${World.resources.length}`;
-      if (CONFIG.resourceDynamicCount) {
+      if (CONFIG.plantEcology.enabled) {
+        // Plant ecology: show resource count with dynamic limit if enabled
+        if (CONFIG.resourceScaleWithAgents) {
+          const aliveCount = World.bundles.filter(b => b.alive).length;
+          const maxResources = Math.floor(
+            clamp(
+              CONFIG.resourceBaseAbundance - (aliveCount * CONFIG.resourceCompetition),
+              CONFIG.resourceScaleMinimum,
+              CONFIG.resourceScaleMaximum
+            )
+          );
+          const competition = (aliveCount * CONFIG.resourceCompetition).toFixed(1);
+          resourceInfo = `🌿 resources: ${World.resources.length}/${maxResources} (${aliveCount} agents | -${competition} competition)`;
+        } else {
+          resourceInfo = `🌿 resources: ${World.resources.length} | plants: ${World.carryingCapacity}`;
+        }
+      } else if (CONFIG.resourceDynamicCount) {
+        // Legacy system: show pressure
         resourceInfo = `🌿 resources: ${World.resources.length}/${World.carryingCapacity} (pressure: ${(World.resourcePressure * 100).toFixed(0)}%)`;
       }
       
@@ -1217,7 +1349,8 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       last = now;
   
       if (!World.paused) {
-        Trail.captureSnapshot(); // fair residuals (prev frame)
+        try {
+          Trail.captureSnapshot(); // fair residuals (prev frame)
         
         // Update each bundle with nearest resource
         World.bundles.forEach(b => {
@@ -1281,6 +1414,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
               b.frustration = 0;
               // Eating reduces hunger significantly
               b.hunger = Math.max(0, b.hunger - CONFIG.hungerDecayOnCollect);
+              // Reset decay state (in case agent was dead/decaying)
+              b.deathTick = -1;
+              b.decayProgress = 0;
               World.collected += 1;
               World.onResourceCollected(); // Track ecology impact
               
@@ -1300,9 +1436,31 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         
         // Plant Ecology: Seed dispersal and spontaneous growth
         if (CONFIG.plantEcology.enabled && FertilityField) {
+          // Calculate dynamic resource limit based on living agents (INVERSE: more agents = less food)
+          let maxResources = CONFIG.resourceStableMax;
+          if (CONFIG.resourceScaleWithAgents) {
+            const aliveCount = World.bundles.filter(b => b.alive).length;
+            // Inverse relationship: start with base abundance, reduce per agent
+            maxResources = Math.floor(
+              clamp(
+                CONFIG.resourceBaseAbundance - (aliveCount * CONFIG.resourceCompetition),
+                CONFIG.resourceScaleMinimum,
+                CONFIG.resourceScaleMaximum
+              )
+            );
+            
+            // Cull excess resources if population has grown (competition increases)
+            if (World.resources.length > maxResources) {
+              const excess = World.resources.length - maxResources;
+              // Remove oldest/least fertile resources
+              World.resources.splice(-excess, excess);
+              console.log(`🔪 Culled ${excess} excess resources due to competition (${aliveCount} agents)`);
+            }
+          }
+          
           // Seed dispersal (resources spawn near existing ones)
           const seedLocation = attemptSeedDispersal(World.resources, FertilityField, globalTick);
-          if (seedLocation && World.resources.length < CONFIG.resourceStableMax) {
+          if (seedLocation && World.resources.length < maxResources) {
             const newResource = new Resource(seedLocation.x, seedLocation.y, CONFIG.resourceRadius);
             World.resources.push(newResource);
             console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
@@ -1310,7 +1468,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           
           // Spontaneous growth (resources appear in fertile soil)
           const growthLocation = attemptSpontaneousGrowth(FertilityField);
-          if (growthLocation && World.resources.length < CONFIG.resourceStableMax) {
+          if (growthLocation && World.resources.length < maxResources) {
             const newResource = new Resource(growthLocation.x, growthLocation.y, CONFIG.resourceRadius);
             World.resources.push(newResource);
             console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
@@ -1332,7 +1490,41 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           });
         }
 
-        globalTick++;
+        // Decay - dead agents decay and recycle chi into fertility
+        if (CONFIG.decay.enabled) {
+          try {
+            // Update decay for all dead agents and mark fully decayed ones for removal
+            const toRemove = [];
+            World.bundles.forEach((b, idx) => {
+              try {
+                const fullyDecayed = b.updateDecay(dt, FertilityField);
+                if (fullyDecayed) {
+                  toRemove.push(idx);
+                }
+              } catch (err) {
+                console.error(`Error updating decay for agent ${b.id}:`, err);
+              }
+            });
+            
+            // Remove fully decayed agents (iterate backwards to avoid index shifts)
+            for (let i = toRemove.length - 1; i >= 0; i--) {
+              const idx = toRemove[i];
+              if (idx >= 0 && idx < World.bundles.length) {
+                const removed = World.bundles.splice(idx, 1)[0];
+                console.log(`💀 Agent ${removed.id} fully decayed and removed | Pop: ${World.bundles.length}`);
+              }
+            }
+          } catch (err) {
+            console.error('Error in decay system:', err);
+          }
+        }
+
+          globalTick++;
+        } catch (err) {
+          console.error('Critical error in main loop (tick ' + globalTick + '):', err);
+          console.error('Stack trace:', err.stack);
+          // Don't pause - let simulation continue
+        }
       }
   
       // draw
@@ -1446,6 +1638,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
               bundle.frustration = 0;
               // Eating reduces hunger significantly
               bundle.hunger = Math.max(0, bundle.hunger - CONFIG.hungerDecayOnCollect);
+              // Reset decay state (in case agent was dead/decaying)
+              bundle.deathTick = -1;
+              bundle.decayProgress = 0;
               World.collected += 1;
               World.onResourceCollected(); // Track ecology impact
               res.respawn();

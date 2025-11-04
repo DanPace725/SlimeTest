@@ -106,6 +106,36 @@ export class FertilityGrid {
   }
   
   /**
+   * Add fertility in a radial area (for decay chi recycling)
+   */
+  addFertilityRadial(px, py, radius, amount) {
+    const config = CONFIG.plantEcology;
+    const cx = Math.floor(px / this.cell);
+    const cy = Math.floor(py / this.cell);
+    const cellRadius = Math.ceil(radius / this.cell);
+    
+    for (let dy = -cellRadius; dy <= cellRadius; dy++) {
+      for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+        const ix = cx + dx;
+        const iy = cy + dy;
+        
+        if (!this.inBounds(ix, iy)) continue;
+        
+        const dist = Math.sqrt(dx * dx + dy * dy) * this.cell;
+        if (dist > radius) continue;
+        
+        const i = this.index(ix, iy);
+        
+        // Boost strength falls off with distance (Gaussian)
+        const strength = Math.exp(-(dist * dist) / (radius * radius * 0.5));
+        const boost = amount * strength;
+        
+        this.fertility[i] = Math.min(config.maxFertility, this.fertility[i] + boost);
+      }
+    }
+  }
+  
+  /**
    * Update fertility - recovery and population pressure
    */
   update(dt, populationSize, globalTick) {

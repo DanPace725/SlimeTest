@@ -22,6 +22,13 @@ export const CONFIG = {
   // Legacy fixed count (used when resourceDynamicCount = false)
   resourceCount: 3,                 // Fixed number of resources (legacy mode)
   
+  // Resource scaling relative to living agents (INVERSE: more agents = less food)
+  resourceScaleWithAgents: true,    // Scale max resources based on living agent count
+  resourceBaseAbundance: 30,        // Base resource abundance (when few agents)
+  resourceCompetition: 1.5,         // Resource reduction per agent (competition pressure)
+  resourceScaleMinimum: 4,          // Minimum resources even with many agents
+  resourceScaleMaximum: 60,         // Maximum resources (with very few agents)
+  
   // === Plant Ecology System (soil fertility & clustering) ===
   plantEcology: {
     enabled: true,                  // Use plant-based resource system
@@ -176,6 +183,17 @@ export const CONFIG = {
     // Population dynamics
     respectCarryingCapacity: true,    // Integrate with resource ecology
     carryingCapacityMultiplier: 1.5,  // Allow population = resources × multiplier
+  },
+
+  // === Decay System (Chi Recycling) ===
+  // Dead agents decay and release their chi back into the environment
+  decay: {
+    enabled: true,                    // Enable decay system
+    duration: 360,                    // Ticks for full decay (6 seconds at 60fps)
+    fertilityBoost: 0.4,              // Chi → fertility conversion rate (0.4 fertility per chi)
+    releaseRadius: 80,                // Area of effect for chi release (pixels)
+    visualFade: true,                 // Gradually fade and shrink visually
+    removeAfterDecay: true,           // Remove fully decayed agents from array
   },
 
   // === HUD ===
