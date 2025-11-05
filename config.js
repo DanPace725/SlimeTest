@@ -5,7 +5,7 @@ export const CONFIG = {
   // === Physics & Core Mechanics ===
   startChi: 15,
   baseDecayPerSecond: 0.10,
-  moveSpeedPxPerSec: 250,
+  moveSpeedPxPerSec: 150,
   moveCostPerSecond: 0.35,
   rewardChi: 10,                    // DEPRECATED: kept for backward compatibility
   resourceRadius: 10,
