@@ -44,28 +44,28 @@ export const CONFIG = {
     seedChance: 0.02,               // Chance per second for resource to spawn seed
     seedDistance: 120,              // Max distance for seed dispersal (pixels)
     growthFertilityThreshold: 0.3,  // Min fertility needed for growth
-    growthChance: 0.15,             // Chance per second to grow in fertile soil
+    growthChance: 0.1,             // Chance per second to grow in fertile soil
     
     // Resource clustering
     patchCount: 3,                  // Number of initial fertile patches
     patchRadius: 150,               // Radius of fertile patches (pixels)
-    patchFertility: 0.9,            // Fertility in patch centers
+    patchFertility: 0.25,            // Fertility in patch centers
     
     // Depletion & recovery
-    harvestDepletion: 0.15,         // Fertility lost per harvest (local)
+    harvestDepletion: 0.5,         // Fertility lost per harvest (local)
     harvestRadius: 60,              // Radius of depletion effect (pixels)
     fertilityRecovery: 0.05,        // Fertility gain per second (when not harvested)
     maxFertility: 1.0,              // Max fertility cap
     
     // Population pressure
     populationPressure: true,       // Enable population-based degradation
-    pressurePerAgent: 0.01,         // Global fertility drain per agent per second
+    pressurePerAgent: 0.1,         // Global fertility drain per agent per second
     pressureThreshold: 6,           // Agents above this cause pressure
 
     // Spawn pressure (reduce growth when population high)
     spawnPressure: {
       startAgents: 8,               // Agents before pressure kicks in
-      maxAgents: 24,                // Population where pressure is maxed
+      maxAgents: 50,                // Population where pressure is maxed
       minSeedMultiplier: 0.35,      // Minimum fraction of seed chance
       minGrowthMultiplier: 0.2,     // Minimum fraction of spontaneous growth chance
       minResourceMultiplier: 0.3    // Minimum fraction of resource abundance cap
@@ -92,7 +92,7 @@ export const CONFIG = {
   },
 
   // === Trail System ===
-  trailCell: 6,
+  trailCell: 8,
   depositPerSec: 2.5,
   evapPerSec: 0.015,
   diffusePerSec: 0.08,
@@ -105,7 +105,7 @@ export const CONFIG = {
   trailCooldownTicks: 8,
   
   // === Own Trail Penalty (discourages circuit running) ===
-  ownTrailPenalty: 0.1,           // Chi cost per second for being on own fresh trail
+  ownTrailPenalty: 0.5,           // Chi cost per second for being on own fresh trail
   ownTrailGraceAge: 60,            // Ticks before own trail is "safe" to cross (0 = always penalize)
 
   // === Autonomy ===
@@ -238,7 +238,7 @@ export const CONFIG = {
       explore: 10.0,              // +R for unique trail coverage
       provenanceCredit: .5,        // +R when others reuse your trails
       death: -50.0,               // -R when χ reaches 0
-      gradientClimb: 2.0,         // +R per pixel moved closer to food (gradient climbing)
+      gradientClimb: 5.0,         // +R per pixel moved closer to food (gradient climbing)
     },
     
     // Episode settings
