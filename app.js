@@ -31,7 +31,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
   
     // ---------- Input ----------
     const held = new Set();
-    let showScentGradient = false; // Toggle for scent gradient visualization
+    let showScentGradient = true; // Toggle for scent gradient visualization
     let showFertility = false; // Toggle for fertility grid visualization
     
     window.addEventListener("keydown", (e) => {
@@ -146,6 +146,116 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       credit(authorId, amount) { this.credits[authorId] = (this.credits[authorId] || 0) + amount; },
       getCredits(authorId) { return this.credits[authorId] || 0; }
     };
+    
+    // ---------- Link System (agent-to-agent tubes) ----------
+    // Link: { aId, bId, strength, age, restLen, lastUseTick }
+    const Links = [];
+    function linksForAgent(id) {
+      return Links.filter(L => L.aId === id || L.bId === id);
+    }
+    function otherId(L, id) { return L.aId === id ? L.bId : L.aId; }
+    function getBundleById(id) { return World.bundles.find(b => b.id === id); }
+    function linkExists(aId, bId) {
+      return Links.some(L => (L.aId === aId && L.bId === bId) || (L.aId === bId && L.bId === aId));
+    }
+    function removeLinksFor(id) {
+      for (let i = Links.length - 1; i >= 0; i--) {
+        const L = Links[i];
+        if (L.aId === id || L.bId === id) Links.splice(i, 1);
+      }
+    }
+    function provokeBondedExploration(deadId) {
+      const duration = CONFIG.bondLoss?.onDeathBoostDuration ?? 600;
+      const affected = linksForAgent(deadId);
+      for (const L of affected) {
+        const survivorId = otherId(L, deadId);
+        const survivor = getBundleById(survivorId);
+        if (survivor && survivor.alive) {
+          survivor.bereavementBoostTicks = Math.max(survivor.bereavementBoostTicks || 0, duration);
+        }
+      }
+      // Immediately remove links tied to dead agent to avoid stale guidance
+      removeLinksFor(deadId);
+    }
+    function tryFormLink(a, b) {
+      const maxR = CONFIG.link.radius;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d > maxR) return;
+      if (!a.alive || !b.alive) return;
+      if (linkExists(a.id, b.id)) return;
+      if (a.chi < CONFIG.link.formCost || b.chi < CONFIG.link.formCost) return;
+      // Shared-context: same hot trail cell snapshot
+      const sA = Trail.sample(a.x, a.y);
+      const sB = Trail.sample(b.x, b.y);
+      const sharedHot = Math.min(sA.value, sB.value) > CONFIG.link.trailMin;
+      if (!sharedHot) return;
+      a.chi -= CONFIG.link.formCost;
+      b.chi -= CONFIG.link.formCost;
+      Links.push({
+        aId: a.id,
+        bId: b.id,
+        strength: CONFIG.link.initStrength,
+        age: 0,
+        restLen: d,
+        lastUseTick: globalTick
+      });
+    }
+    function maintainLinks(dt) {
+      // maintenance leak and passive decay; strengthen on use; breakage
+      for (let i = Links.length - 1; i >= 0; i--) {
+        const L = Links[i];
+        const a = getBundleById(L.aId);
+        const b = getBundleById(L.bId);
+        if (!a || !b || !a.alive || !b.alive) { Links.splice(i, 1); continue; }
+        // χ maintenance proportional to strength
+        const leak = CONFIG.link.maintPerSec * L.strength * dt;
+        a.chi = Math.max(0, a.chi - leak);
+        b.chi = Math.max(0, b.chi - leak);
+        // passive decay
+        L.strength -= CONFIG.link.decayPerSec * dt;
+        // hunger-driven extra decay (averaged)
+        const hA = clamp(a.hunger, 0, 1);
+        const hB = clamp(b.hunger, 0, 1);
+        const escapeA = Math.max(0, (hA - CONFIG.hungerThresholdHigh)) / Math.max(1e-6, 1 - CONFIG.hungerThresholdHigh);
+        const escapeB = Math.max(0, (hB - CONFIG.hungerThresholdHigh)) / Math.max(1e-6, 1 - CONFIG.hungerThresholdHigh);
+        const hungerEsc = (escapeA * escapeA + escapeB * escapeB) * 0.5; // quadratic mean
+        if (hungerEsc > 0) {
+          L.strength -= CONFIG.link.hungerDecayPerSec * hungerEsc * dt;
+        }
+        // use-based strengthening: projection of velocity along link direction
+        const vx = b.x - a.x, vy = b.y - a.y;
+        const len = Math.hypot(vx, vy) || 1;
+        const ux = vx / len, uy = vy / len;
+        const aProj = (a.vx * ux + a.vy * uy);
+        const bProj = (b.vx * ux + b.vy * uy) * -1; // moving toward each other counts
+        const useFactor = Math.max(0, aProj) + Math.max(0, bProj);
+        if (useFactor > 0) {
+          L.strength += CONFIG.link.strengthenPerUse * dt;
+          L.lastUseTick = globalTick;
+        }
+        // clamp and breakage
+        if (L.strength < CONFIG.link.minStrength) { Links.splice(i, 1); continue; }
+        L.strength = Math.min(2.0, Math.max(0, L.strength));
+        L.age += dt;
+      }
+    }
+    function reinforceLinks(dt) {
+      // deposit faint trail along each link segment, scaled by strength
+      const samples = 10;
+      for (const L of Links) {
+        const a = getBundleById(L.aId);
+        const b = getBundleById(L.bId);
+        if (!a || !b) continue;
+        const depBase = CONFIG.depositPerSec * 0.1 * L.strength * dt;
+        for (let s = 0; s <= samples; s++) {
+          const t = s / samples;
+          const x = a.x + (b.x - a.x) * t;
+          const y = a.y + (b.y - a.y) * t;
+          Trail.deposit(x, y, depBase, 0); // authorId 0 for neutral paving
+        }
+      }
+    }
   
     // ---------- Learning System ----------
     let learningMode = 'play'; // 'play' or 'train'
@@ -267,7 +377,8 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           const o = i * 4;
           
           // Get color based on author using dynamic color function
-          const color = authorId !== 0 ? getAgentColorRGB(authorId) : { r: 0, g: 255, b: 0 };
+          // Neutral deposits (authorId===0) use a subtle gray to avoid overpowering
+          const color = authorId !== 0 ? getAgentColorRGB(authorId) : { r: 140, g: 140, b: 140 };
           
           data[o+0] = Math.floor(color.r * intensity / 255);
           data[o+1] = Math.floor(color.g * intensity / 255);
@@ -341,6 +452,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         this.deathTick = -1; // Tick when agent died (-1 = not dead)
         this.decayProgress = 0; // 0 to 1, how much decayed
         this.chiAtDeath = 0; // Chi remaining when died (for recycling)
+
+        // Bond-loss exploration boost (bereavement)
+        this.bereavementBoostTicks = 0; // ticks remaining for exploration boost
       }
   
       computeSensoryRange(dt) {
@@ -434,9 +548,20 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           }
         }
 
-        // (3) trail following (reduced near walls to prevent corner traps)
+        // (3) trail following (reduced near walls and when close to resources)
         let trailStrength = resourceVisible ? CONFIG.aiTrailFollowingNear
                                              : CONFIG.aiTrailFollowingFar;
+        
+        // Reduce trail following when very close to resource (direct pursuit mode)
+        if (resource && resourceVisible) {
+          const dist = Math.hypot(resource.x - this.x, resource.y - this.y);
+          const closeRange = (resource.r || 15) + this.size / 2 + 30;
+          if (dist < closeRange) {
+            // Reduce trail following when close to resource (0% when at collection range)
+            const proximityFactor = Math.max(0, dist / closeRange);
+            trailStrength *= proximityFactor * proximityFactor; // Quadratic falloff
+          }
+        }
         
         // Reduce trail following when near walls to avoid corner death spirals
         const dMin = Math.min(dLeft, dRight, dTop, dBottom);
@@ -466,13 +591,42 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
             }
           }
         }
+        
+        // (3.5) Link guidance and spring (when no resource visible)
+        if (!resourceVisible) {
+          const h = clamp(this.hunger, 0, 1);
+          // Escape factor grows as hunger exceeds high threshold
+          const escape = (function(th, hv){
+            const t0 = th; // hungerThresholdHigh from config
+            const x = Math.max(0, hv - t0) / Math.max(1e-6, 1 - t0);
+            return Math.min(1, x * x); // quadratic ramp for decisiveness
+          })(CONFIG.hungerThresholdHigh, h);
+          const damp = 1 - CONFIG.link.hungerEscape * escape;
+          const myLinks = linksForAgent(this.id);
+          for (const L of myLinks) {
+            const other = getBundleById(otherId(L, this.id));
+            if (!other) continue;
+            const vx = other.x - this.x, vy = other.y - this.y;
+            const len = Math.hypot(vx, vy) || 1;
+            const w = CONFIG.link.guidanceGain * L.strength * damp;
+            dx += (vx / len) * w;
+            dy += (vy / len) * w;
+            // Springy geometry around rest length
+            const k = CONFIG.link.springK * L.strength * damp;
+            const delta = len - L.restLen;
+            const f = k * delta;
+            dx += (vx / len) * f;
+            dy += (vy / len) * f;
+          }
+        }
   
-        // (4) exploration noise scales with frustration AND hunger
+        // (4) exploration noise scales with frustration AND hunger (+bereavement)
         const f = clamp(this.frustration, 0, 1);
         const h = clamp(this.hunger, 0, 1);
         // Hunger amplifies exploration - hungry agents explore more desperately
         const hungerAmp = 1 + (CONFIG.hungerExplorationAmp - 1) * h;
-        const noise = (CONFIG.aiExploreNoiseBase + CONFIG.aiExploreNoiseGain * f) * hungerAmp;
+        const bereaveMul = 1 + (this.bereavementBoostTicks > 0 ? (CONFIG.bondLoss?.onDeathExploreBoost ?? 0) : 0);
+        const noise = (CONFIG.aiExploreNoiseBase + CONFIG.aiExploreNoiseGain * f) * hungerAmp * bereaveMul;
         dx += (Math.random() - 0.5) * noise * (resourceVisible ? 1.0 : 1.8);
         dy += (Math.random() - 0.5) * noise * (resourceVisible ? 1.0 : 1.8);
   
@@ -566,7 +720,12 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           // Track death for decay system
           this.deathTick = globalTick;
           this.chiAtDeath = 0; // Already spent all chi
+          // Signal bonded survivors and remove dead links immediately
+          provokeBondedExploration(this.id);
         }
+        
+        // Decay bereavement boost (per tick)
+        if (this.bereavementBoostTicks > 0) this.bereavementBoostTicks--;
       }
 
       updateHunger(dt) {
@@ -653,13 +812,15 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           ctx.restore();
         }
 
-        // Controller indicator - glowing border when using policy
+        // Controller indicator - glowing circular border when using policy
         if (this.useController && this.controller && this.alive) {
           ctx.save();
           ctx.strokeStyle = "#ffff00"; // yellow for controller
           ctx.globalAlpha = 0.6 + Math.sin(globalTick * 0.2) * 0.3;
           ctx.lineWidth = 3;
-          ctx.strokeRect(this.x - this.size/2 - 3, this.y - this.size/2 - 3, this.size + 6, this.size + 6);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size/2 + 3, 0, Math.PI * 2);
+          ctx.stroke();
           ctx.restore();
         }
 
@@ -688,7 +849,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           ctx.restore();
         }
 
-        // body (with decay effects if dead)
+        // body (with decay effects if dead) - draw as circle
         ctx.save();
         
         // Apply decay visual effects
@@ -707,8 +868,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         // Shrink size as it decays
         const decayScale = this.alive ? 1.0 : (1.0 - this.decayProgress * 0.6); // Shrink to 40% of original
         const effectiveSize = this.size * decayScale;
-        const half = effectiveSize / 2;
-        ctx.fillRect(this.x - half, this.y - half, effectiveSize, effectiveSize);
+        const radius = effectiveSize / 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fill();
         
         ctx.restore();
         
@@ -788,10 +951,12 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
           const health = clamp(this.chi / 20, 0.2, 1.0);
           const dep = CONFIG.depositPerSec * health * dt;
           Trail.deposit(this.x, this.y, dep, this.id);
-          Trail.deposit(this.x - half, this.y - half, dep * 0.25, this.id);
-          Trail.deposit(this.x + half, this.y - half, dep * 0.25, this.id);
-          Trail.deposit(this.x - half, this.y + half, dep * 0.25, this.id);
-          Trail.deposit(this.x + half, this.y + half, dep * 0.25, this.id);
+          // Add subtle radial deposits around the circle for visibility
+          const ringR = radius * 0.7;
+          for (let k = 0; k < 4; k++) {
+            const ang = (k * Math.PI) / 2;
+            Trail.deposit(this.x + Math.cos(ang) * ringR, this.y + Math.sin(ang) * ringR, dep * 0.25, this.id);
+          }
         }
 
         // Residual χ reuse
@@ -902,6 +1067,11 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
 
         World.bundles.push(child);
         World.totalBirths++;
+        
+        // Create lineage link
+        if (CONFIG.mitosis.showLineage) {
+          World.addLineageLink(this.id, childId, globalTick);
+        }
 
         console.log(`🧫 ${eventLabel}! Agent ${this.id} (gen ${this.generation}) → Agent ${child.id} (gen ${child.generation}) | Pop: ${World.bundles.length}`);
 
@@ -1029,6 +1199,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         this.age = 0; // Ticks since spawn (for visualization)
         this.cooldownEnd = -1; // Tick when cooldown expires (-1 = not on cooldown)
         this.visible = true; // Whether resource is visible/collectable
+        // Consumable scent parameters (per-resource)
+        this.scentStrength = CONFIG.scentGradient.strength;
+        this.scentRange = CONFIG.scentGradient.maxRange;
       }
       
       draw(ctx) {
@@ -1098,6 +1271,9 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         this.age = 0;
         this.visible = true;
         this.cooldownEnd = -1;
+        // Reset scent gradient on respawn
+        this.scentStrength = CONFIG.scentGradient.strength;
+        this.scentRange = CONFIG.scentGradient.maxRange;
       }
       
       /**
@@ -1138,6 +1314,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       // Mitosis tracking
       nextAgentId: 5,  // Start at 5 (after initial 4 agents: 1-4)
       totalBirths: 0,  // Count of all mitosis events
+      lineageLinks: [], // Array of {parentId, childId, birthTick} for visual lineage tracking
       
       // === Resource Ecology (carrying capacity model) ===
       carryingCapacity: 0,           // Current max resources (starts high, declines to stable)
@@ -1158,10 +1335,13 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         Trail.clear();
         globalTick = 0;
         Ledger.credits = {};
+        // Clear all links on reset
+        Links.length = 0;
         
         // Reset mitosis tracking
         this.nextAgentId = 5;
         this.totalBirths = 0;
+        this.lineageLinks = [];
         
         const cx = innerWidth / 2, cy = innerHeight / 2;
         this.bundles = [
@@ -1219,6 +1399,35 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         // Don't reset EMA across episodes during training (tracks long-term difficulty)
         // Only reset timestamp so first find in episode starts fresh
         this.lastFindTimestamp = performance.now() / 1000;
+      },
+      
+      // Add lineage link when mitosis occurs
+      addLineageLink(parentId, childId, birthTick) {
+        this.lineageLinks.push({
+          parentId: parentId,
+          childId: childId,
+          birthTick: birthTick
+        });
+      },
+      
+      // Clean up lineage links (remove expired or invalid links)
+      cleanupLineageLinks() {
+        if (!CONFIG.mitosis.showLineage) return;
+        
+        const maxAge = CONFIG.mitosis.lineageFadeDuration || 600;
+        const now = globalTick;
+        
+        // Filter out expired links and links where parent or child no longer exists
+        this.lineageLinks = this.lineageLinks.filter(link => {
+          const age = now - link.birthTick;
+          if (age > maxAge) return false; // Link expired
+          
+          // Check if parent and child still exist
+          const parent = this.bundles.find(b => b.id === link.parentId);
+          const child = this.bundles.find(b => b.id === link.childId);
+          
+          return parent && child; // Keep link if both exist
+        });
       },
       
       // Helper function to get nearest resource to a bundle (only visible resources)
@@ -1302,6 +1511,54 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
     };
     World.reset();
   
+    // ---------- Lineage Visualization ----------
+    function drawLineageLinks(ctx) {
+      if (!CONFIG.mitosis.showLineage || !World.lineageLinks || World.lineageLinks.length === 0) {
+        return;
+      }
+      
+      const maxDistance = CONFIG.mitosis.lineageMaxDistance || 500;
+      const fadeDuration = CONFIG.mitosis.lineageFadeDuration || 600;
+      const baseOpacity = CONFIG.mitosis.lineageOpacity || 0.4;
+      const color = CONFIG.mitosis.lineageColor || "#888888";
+      
+      ctx.save();
+      ctx.strokeStyle = color;
+      
+      World.lineageLinks.forEach(link => {
+        // Find parent and child bundles
+        const parent = World.bundles.find(b => b.id === link.parentId);
+        const child = World.bundles.find(b => b.id === link.childId);
+        
+        if (!parent || !child) return; // Skip if either doesn't exist
+        
+        // Calculate distance
+        const dx = child.x - parent.x;
+        const dy = child.y - parent.y;
+        const dist = Math.hypot(dx, dy);
+        
+        // Skip if too far away
+        if (dist > maxDistance) return;
+        
+        // Calculate fade based on age
+        const age = globalTick - link.birthTick;
+        const fadeProgress = Math.min(1, age / fadeDuration);
+        const opacity = baseOpacity * (1 - fadeProgress * 0.7); // Fade to 30% of base opacity
+        
+        if (opacity < 0.05) return; // Too faded to draw
+        
+        // Draw line
+        ctx.globalAlpha = opacity;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(parent.x, parent.y);
+        ctx.lineTo(child.x, child.y);
+        ctx.stroke();
+      });
+      
+      ctx.restore();
+    }
+    
     // ---------- HUD ----------
     function drawHUD() {
       if (!CONFIG.hud.show) return;
@@ -1469,16 +1726,74 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         try {
           Trail.captureSnapshot(); // fair residuals (prev frame)
         
+        // Link formation pass (cheap local heuristic)
+        for (let i = 0; i < World.bundles.length; i++) {
+          for (let j = i + 1; j < World.bundles.length; j++) {
+            const a = World.bundles[i];
+            const b = World.bundles[j];
+            if (!a.alive || !b.alive) continue;
+            tryFormLink(a, b);
+          }
+        }
+
         // Update each bundle with nearest resource
         World.bundles.forEach(b => {
           const nearestResource = World.getNearestResource(b);
           b.update(dt, nearestResource);
         });
         
+        // Link maintenance & decay, use-based strengthening
+        maintainLinks(dt);
+
         Trail.step(dt);
         
+        // Trail reinforcement along active links
+        reinforceLinks(dt);
+
         // Update resource ecology (carrying capacity dynamics)
         World.updateEcology(dt);
+
+        // Consumable scent gradient: orbiting erodes, absence recovers
+        if (CONFIG.scentGradient.consumable) {
+          const orbitBand = CONFIG.scentGradient.orbitBandPx;
+          const minStrength = CONFIG.scentGradient.minStrength;
+          const minRange = CONFIG.scentGradient.minRange;
+          const baseStrength = CONFIG.scentGradient.strength;
+          const baseRange = CONFIG.scentGradient.maxRange;
+          const consumeRate = CONFIG.scentGradient.consumePerSec * dt;
+          const recoverRate = CONFIG.scentGradient.recoverPerSec * dt;
+
+          for (const res of World.resources) {
+            if (!res.visible) continue;
+            // Find nearest alive agent distance
+            let nearest = Infinity;
+            for (const b of World.bundles) {
+              if (!b.alive) continue;
+              const d = Math.hypot(res.x - b.x, res.y - b.y);
+              if (d < nearest) nearest = d;
+            }
+            // Inside orbit band (outside core radius)
+            const inner = res.r;
+            const outer = res.r + orbitBand;
+            if (nearest > inner && nearest <= outer) {
+              const t = 1 - (nearest - inner) / Math.max(1e-6, outer - inner); // 0..1 closer => bigger
+              const use = t * t; // quadratic for stronger close-in consumption
+              res.scentStrength = Math.max(minStrength, res.scentStrength - consumeRate * use);
+              // Optionally tie range to strength fraction
+              const frac = res.scentStrength / baseStrength;
+              const targetRange = Math.max(minRange, baseRange * frac);
+              // Smoothly relax toward target
+              res.scentRange += (targetRange - res.scentRange) * 0.5;
+            } else {
+              // Recover when no close orbiters
+              res.scentStrength = Math.min(baseStrength, res.scentStrength + recoverRate);
+              res.scentRange = Math.min(baseRange, res.scentRange + (baseRange - res.scentRange) * 0.1);
+            }
+          }
+        }
+        
+        // Clean up expired lineage links
+        World.cleanupLineageLinks();
 
         // Agent collision detection and separation
         if (CONFIG.enableAgentCollision) {
@@ -1656,6 +1971,31 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       }
       
       Trail.draw();
+      
+      // Draw links (debug visualization)
+      (function drawLinks() {
+        if (!Links.length) return;
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        for (const L of Links) {
+          const a = getBundleById(L.aId);
+          const b = getBundleById(L.bId);
+          if (!a || !b) continue;
+          const color = getAgentColor(L.aId, true);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = Math.max(1, L.strength * 2);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      })();
+      
+      // Draw lineage links (parent-child connections)
+      if (CONFIG.mitosis.showLineage) {
+        drawLineageLinks(ctx);
+      }
       
       // Draw all resources (only visible ones)
       World.resources.forEach(res => {
