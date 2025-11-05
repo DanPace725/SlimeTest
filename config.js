@@ -37,7 +37,7 @@ export const CONFIG = {
     fertilityCell: 10,              // Size of fertility cells (pixels)
     
     // Initial conditions
-    initialFertility: 0.8,          // Starting soil quality (0-1)
+    initialFertility: 0.5,          // Starting soil quality (0-1)
     fertilityVariation: 0.3,        // Random variation in initial fertility
     
     // Growth mechanics
@@ -52,7 +52,7 @@ export const CONFIG = {
     patchFertility: 0.25,            // Fertility in patch centers
     
     // Depletion & recovery
-    harvestDepletion: 0.5,         // Fertility lost per harvest (local)
+    harvestDepletion: 0.9,         // Fertility lost per harvest (local)
     harvestRadius: 60,              // Radius of depletion effect (pixels)
     fertilityRecovery: 0.05,        // Fertility gain per second (when not harvested)
     maxFertility: 1.0,              // Max fertility cap
