@@ -296,7 +296,16 @@ export const CONFIG = {
     hungerEscape: 0.7,        // 0..1 fraction to damp link forces at max hunger
     hungerDecayPerSec: 0.02   // extra strength/sec decay at max hunger (averaged)
   },
-  
+
+  // === Signal Field (multi-channel environmental signals) ===
+  signal: {
+    enabled: false,
+    cell: 10,
+    decayPerSec: 0.06,
+    diffusePerSec: 0.12,
+    channels: 3,
+  },
+
   // === Bond Loss Signals ===
   bondLoss: {
     onDeathExploreBoost: 1.0,     // Extra exploration noise multiplier when a bonded partner dies
@@ -536,6 +545,13 @@ export const CONFIG_SCHEMA = {
     "link.hungerEscape": { label: "Hunger escape", min: 0, max: 1, step: 0.01 },
     "link.hungerDecayPerSec": { label: "Hunger decay/sec", min: 0, max: 1, step: 0.001 },
   },
+  "Signal Field": {
+    "signal.enabled": { label: "Enable signal field", type: "boolean" },
+    "signal.cell": { label: "Signal cell (px)", min: 1, max: 80, step: 1 },
+    "signal.decayPerSec": { label: "Signal decay/sec", min: 0, max: 1, step: 0.01 },
+    "signal.diffusePerSec": { label: "Signal diffuse/sec", min: 0, max: 1, step: 0.01 },
+    "signal.channels": { label: "Signal channels", min: 1, max: 8, step: 1 },
+  },
   "Bond Loss": {
     "bondLoss.onDeathExploreBoost": { label: "On-death explore boost", min: 0, max: 10, step: 0.01 },
     "bondLoss.onDeathBoostDuration": { label: "On-death boost duration", min: 0, max: 10000, step: 10 },
@@ -760,6 +776,13 @@ const CONFIG_HINTS = {
   "link.hungerEscape": "How much hunger weakens link forces.",
   "link.hungerDecayPerSec": "Extra link decay when agents are starving.",
 
+  // Signal field
+  "signal.enabled": "Toggle multi-channel signal field rendering and updates.",
+  "signal.cell": "Grid cell size (pixels) for the signal field downsample.",
+  "signal.decayPerSec": "Per-second decay applied to signal strengths.",
+  "signal.diffusePerSec": "Per-second diffusion rate between neighboring signal cells.",
+  "signal.channels": "Number of independent signal channels to allocate.",
+
   // Bond loss
   "bondLoss.onDeathExploreBoost": "Exploration boost after a bonded partner dies.",
   "bondLoss.onDeathBoostDuration": "Ticks that bereavement boost lasts.",
@@ -824,6 +847,16 @@ function onConfigChanged() {
   // If trailCell changed, resize trail grid:
   if (typeof Trail !== 'undefined' && Trail && Trail.cell !== CONFIG.trailCell) Trail.resize();
   // You can add other "apply" hooks as needed.
+  if (typeof window !== 'undefined' && window.SignalField) {
+    const field = window.SignalField;
+    const desiredCell = CONFIG.signal.cell;
+    const desiredChannels = Math.max(1, Math.floor(CONFIG.signal.channels || 1));
+    if (field.cell !== desiredCell || field.channelCount !== desiredChannels) {
+      const width = field.canvasWidth || window.innerWidth || 0;
+      const height = field.canvasHeight || window.innerHeight || 0;
+      field.resize(width, height, field.lastCtx);
+    }
+  }
 }
 
 // ---- Panel helpers ----

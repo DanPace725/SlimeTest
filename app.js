@@ -5,6 +5,7 @@
 // [H]=agent dashboard | [U]=cycle HUD (full/minimal/hidden) | [K]=toggle hotkey strip | [O]=config panel
 
 import { CONFIG } from './config.js';
+import { SignalField } from './signalField.js';
 import { HeuristicController, LinearPolicyController } from './controllers.js';
 import { buildObservation } from './observations.js';
 import { RewardTracker, EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from './rewards.js';
@@ -61,6 +62,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       if (typeof Trail !== 'undefined' && Trail && Trail.resize) {
         Trail.resize();
       }
+
+      if (SignalField && SignalField.resize) {
+        SignalField.resize(canvasWidth, canvasHeight, ctx);
+      }
       
       // Recreate FertilityField if plant ecology is enabled
       if (CONFIG.plantEcology.enabled && typeof FertilityGrid !== 'undefined') {
@@ -113,7 +118,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       }
       else if (e.code === "KeyS") { World.bundles.forEach(b => { b.extendedSensing = !b.extendedSensing; }); }
       else if (e.code === "KeyT") { CONFIG.renderTrail = !CONFIG.renderTrail; }
-      else if (e.code === "KeyX") { Trail.clear(); }
+      else if (e.code === "KeyX") { Trail.clear(); SignalField.clear(); }
       else if (e.code === "KeyF") { CONFIG.enableDiffusion = !CONFIG.enableDiffusion; }
       else if (e.code === "KeyA") { CONFIG.autoMove = !CONFIG.autoMove; }
       else if (e.code === "KeyL") { if (window.trainingUI) window.trainingUI.toggle(); }
@@ -1429,6 +1434,7 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       
       reset() {
         Trail.clear();
+        SignalField.clear();
         globalTick = 0;
         Ledger.credits = {};
         // Clear all links on reset
@@ -2081,7 +2087,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       if (!World.paused) {
         try {
           Trail.captureSnapshot(); // fair residuals (prev frame)
-        
+          if (CONFIG.signal.enabled) {
+            SignalField.captureSnapshot();
+          }
+
         // Link formation pass (cheap local heuristic)
         for (let i = 0; i < World.bundles.length; i++) {
           for (let j = i + 1; j < World.bundles.length; j++) {
@@ -2102,7 +2111,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         maintainLinks(dt);
 
         Trail.step(dt);
-        
+        if (CONFIG.signal.enabled) {
+          SignalField.step(dt);
+        }
+
         // Trail reinforcement along active links
         reinforceLinks(dt);
 
@@ -2325,7 +2337,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
       if (showFertility && CONFIG.plantEcology.enabled && FertilityField) {
         FertilityField.draw(ctx);
       }
-      
+
+      if (CONFIG.signal.enabled) {
+        SignalField.draw(ctx);
+      }
       Trail.draw();
       
       // Draw links (debug visualization)
@@ -2397,7 +2412,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         
         // Capture snapshot for fair trail sampling
         Trail.captureSnapshot();
-        
+        if (CONFIG.signal.enabled) {
+          SignalField.captureSnapshot();
+        }
+
         // Update BOTH agents
         let totalChiSpent = 0;
         let totalCollected = 0;
@@ -2479,7 +2497,10 @@ import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getResou
         
         // Update trail field (shared environment)
         Trail.step(dt);
-        
+        if (CONFIG.signal.enabled) {
+          SignalField.step(dt);
+        }
+
         globalTick++;
         episodeTicks++;
         
