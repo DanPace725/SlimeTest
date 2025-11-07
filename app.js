@@ -16,6 +16,8 @@ import { SignalResponseAnalytics } from './analysis/signalResponseAnalytics.js';
 import { TcScheduler, TcRandom, TcStorage } from './tcStorage.js';
 import { getRule110SpawnLocation, getRule110SpawnMultiplier, getRule110SpawnInfo, drawRule110Overlay } from './tcResourceBridge.js';
 import { createBundleClass } from './src/core/bundle.js';
+import { createResourceClass } from './src/core/resource.js';
+import { createWorld } from './src/core/world.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -584,336 +586,34 @@ import { createBundleClass } from './src/core/bundle.js';
       getAgentColorRGB,
       getWorld: () => World
     });
-  
-    class Resource {
-      constructor(x, y, r) { 
-        this.x = x; 
-        this.y = y; 
-        this.r = r; 
-        this.age = 0; // Ticks since spawn (for visualization)
-        this.cooldownEnd = -1; // Tick when cooldown expires (-1 = not on cooldown)
-        this.visible = true; // Whether resource is visible/collectable
-        // Consumable scent parameters (per-resource)
-        this.scentStrength = CONFIG.scentGradient.strength;
-        this.scentRange = CONFIG.scentGradient.maxRange;
-      }
-      
-      draw(ctx) {
-        // Don't draw if on cooldown (invisible)
-        if (!this.visible) return;
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-        
-        // Color based on local fertility if plant ecology enabled
-        if (CONFIG.plantEcology.enabled && FertilityField) {
-          const fertility = FertilityField.sampleAt(this.x, this.y);
-          const brightness = Math.floor(155 + fertility * 100);
-          ctx.fillStyle = `rgb(0, ${brightness}, 88)`;
-        } else {
-          ctx.fillStyle = "#00ff88";
-        }
-        
-        ctx.fill();
-        
-        // Optional: Show young resources with a glow (recently sprouted)
-        if (CONFIG.plantEcology.enabled && this.age < 60) {
-          ctx.save();
-          ctx.strokeStyle = `rgba(0, 255, 136, ${1 - this.age / 60})`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.r + 4, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-        }
+    const terrainHeightFn = typeof getTerrainHeight === 'function'
+      ? (x, y) => getTerrainHeight(x, y)
+      : undefined;
 
-        // Subtle scent gradient indicator
-        if (CONFIG.scentGradient.enabled && CONFIG.scentGradient.showSubtleIndicator) {
-          const pulse = (Math.sin(globalTick * 0.05) + 1) / 2; // 0..1
-
-          ctx.save();
-          ctx.strokeStyle = `rgba(0, 255, 136, ${0.1 + pulse * 0.2})`;
-          ctx.lineWidth = 1;
-
-          // Ring 1
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.r + 10 + pulse * 10, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // Ring 2
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.r + 30 + pulse * 20, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.restore();
-        }
-      }
-      
-      respawn() {
-        // TC-Resource integration: spawn based on Rule 110 if enabled
-        if (CONFIG.tcResourceIntegration.enabled && typeof window !== 'undefined' && window.rule110Stepper) {
-          const spawnInfo = getRule110SpawnInfo(window.rule110Stepper, canvasWidth, canvasHeight);
-          this.x = spawnInfo.location.x;
-          this.y = spawnInfo.location.y;
-          this.tcData = spawnInfo.tcData; // Store TC metadata
-        }
-        // Use fertility-based spawning if plant ecology enabled
-        else if (CONFIG.plantEcology.enabled && FertilityField) {
-          const location = getResourceSpawnLocation(FertilityField, canvasWidth, canvasHeight);
-          this.x = location.x;
-          this.y = location.y;
-        } else {
-          // Fallback: random spawn
-          const margin = 60;
-          this.x = margin + TcRandom.random() * (innerWidth  - 2*margin);
-          this.y = margin + TcRandom.random() * (innerHeight - 2*margin);
-        }
-        
-        this.age = 0;
-        this.visible = true;
-        this.cooldownEnd = -1;
-        // Reset scent gradient on respawn
-        this.scentStrength = CONFIG.scentGradient.strength;
-        this.scentRange = CONFIG.scentGradient.maxRange;
-      }
-      
-      /**
-       * Start cooldown after collection
-       */
-      startCooldown() {
-        this.cooldownEnd = globalTick + CONFIG.resourceRespawnCooldown;
-        this.visible = false; // Hide resource during cooldown
-      }
-      
-      /**
-       * Check if cooldown has expired and respawn if ready
-       */
-      updateCooldown() {
-        if (this.cooldownEnd > 0 && globalTick >= this.cooldownEnd) {
-          // Cooldown expired, respawn
-          this.respawn();
-          // Update Z position to terrain height if terrain enabled
-          if (typeof getTerrainHeight === 'function') {
-            this.z = getTerrainHeight(this.x, this.y);
-          }
-        }
-      }
-      
-      update(dt) {
-        this.age++;
-        this.updateCooldown();
-      }
-    }
+    const Resource = createResourceClass({
+      getGlobalTick: () => globalTick,
+      getCanvasWidth: () => canvasWidth,
+      getCanvasHeight: () => canvasHeight,
+      getFertilityField: () => FertilityField,
+      getRule110Stepper: () => (typeof window !== 'undefined' ? window.rule110Stepper : null),
+      getTerrainHeight: terrainHeightFn,
+      getViewportWidth: () => innerWidth,
+      getViewportHeight: () => innerHeight
+    });
   
     // ---------- World ----------
-    const World = {
-      paused: false,
-      bundles: [],
-      resources: [],  // Changed from single resource to array
-      collected: 0,
-      
-      // Mitosis tracking
-      nextAgentId: 5,  // Start at 5 (after initial 4 agents: 1-4)
-      totalBirths: 0,  // Count of all mitosis events
-      lineageLinks: [], // Array of {parentId, childId, birthTick} for visual lineage tracking
-      
-      // === Resource Ecology (carrying capacity model) ===
-      carryingCapacity: 0,           // Current max resources (starts high, declines to stable)
-      resourcePressure: 0,           // Accumulated depletion pressure (0..1)
-      
-      // === Adaptive Reward Tracking ===
-      avgFindTime: 4.0,              // EMA of time between resource finds (seconds)
-      avgAlpha: 0.1,                 // EMA smoothing factor (fallback if not in config)
-      lastFindTimestamp: null,       // Timestamp of last resource collection
-      rewardStats: {                 // Statistics for monitoring
-        totalRewards: 0,
-        avgRewardGiven: 0,
-        minFindTime: Infinity,
-        maxFindTime: 0
-      },
-      
-      reset() {
-        Trail.clear();
-        SignalField.clear();
-        SignalResponseAnalytics.reset();
-        TcStorage.clear();
-        TcScheduler.reset();
-        globalTick = 0;
-        Ledger.credits = {};
-        // Clear all links on reset
-        Links.length = 0;
-        
-        // Reset mitosis tracking
-        this.nextAgentId = 5;
-        this.totalBirths = 0;
-        this.lineageLinks = [];
-        
-        const cx = canvasWidth / 2, cy = canvasHeight / 2;
-        this.bundles = [
-          new Bundle(cx - 100, cy - 80, CONFIG.bundleSize, CONFIG.startChi, 1),
-          new Bundle(cx + 100, cy + 80, CONFIG.bundleSize, CONFIG.startChi, 2),
-          new Bundle(cx - 100, cy + 80, CONFIG.bundleSize, CONFIG.startChi, 3),
-          new Bundle(cx + 100, cy - 80, CONFIG.bundleSize, CONFIG.startChi, 4),
-        ];
-        
-        // Initialize resource ecology
-        this.resources = [];
-        if (CONFIG.resourceDynamicCount) {
-          // Calculate initial resource count
-          let initialCount;
-          
-          // If using plant ecology with agent-scaled resources, respect competition
-          if (CONFIG.plantEcology.enabled && CONFIG.resourceScaleWithAgents) {
-            const startingAgents = this.bundles.length;
-            initialCount = Math.floor(
-              clamp(
-                CONFIG.resourceBaseAbundance - (startingAgents * CONFIG.resourceCompetition),
-                CONFIG.resourceScaleMinimum,
-                CONFIG.resourceScaleMaximum
-              )
-            );
-            console.log(`🌱 Initial resources: ${initialCount} (${startingAgents} starting agents)`);
-          } else {
-            // Legacy: start with abundant resources, will decline to stable level
-            initialCount = Math.floor(
-              CONFIG.resourceInitialMin + 
-              TcRandom.random() * (CONFIG.resourceInitialMax - CONFIG.resourceInitialMin + 1)
-            );
-          }
-          
-          this.carryingCapacity = initialCount;
-          this.resourcePressure = 0; // No depletion pressure at start
-          
-          for (let i = 0; i < initialCount; i++) {
-            const res = new Resource(cx + 120, cy, CONFIG.resourceRadius);
-            res.respawn();
-            this.resources.push(res);
-          }
-        } else {
-          // Legacy fixed count mode
-          const numResources = CONFIG.resourceCount || 1;
-          for (let i = 0; i < numResources; i++) {
-            const res = new Resource(cx + 120, cy, CONFIG.resourceRadius);
-            res.respawn();
-            this.resources.push(res);
-          }
-        }
-        
-        this.collected = 0;
-        
-        // Don't reset EMA across episodes during training (tracks long-term difficulty)
-        // Only reset timestamp so first find in episode starts fresh
-        this.lastFindTimestamp = performance.now() / 1000;
-      },
-      
-      // Add lineage link when mitosis occurs
-      addLineageLink(parentId, childId, birthTick) {
-        this.lineageLinks.push({
-          parentId: parentId,
-          childId: childId,
-          birthTick: birthTick
-        });
-      },
-      
-      // Clean up lineage links (remove expired or invalid links)
-      cleanupLineageLinks() {
-        if (!CONFIG.mitosis.showLineage) return;
-        
-        const maxAge = CONFIG.mitosis.lineageFadeDuration || 600;
-        const now = globalTick;
-        
-        // Filter out expired links and links where parent or child no longer exists
-        this.lineageLinks = this.lineageLinks.filter(link => {
-          const age = now - link.birthTick;
-          if (age > maxAge) return false; // Link expired
-          
-          // Check if parent and child still exist
-          const parent = this.bundles.find(b => b.id === link.parentId);
-          const child = this.bundles.find(b => b.id === link.childId);
-          
-          return parent && child; // Keep link if both exist
-        });
-      },
-      
-      // Helper function to get nearest resource to a bundle (only visible resources)
-      getNearestResource(bundle) {
-        const visibleResources = this.resources.filter(res => res.visible);
-        if (visibleResources.length === 0) return null;
-        
-        let nearest = visibleResources[0];
-        let minDist = Math.hypot(bundle.x - nearest.x, bundle.y - nearest.y);
-        
-        for (let i = 1; i < visibleResources.length; i++) {
-          const dist = Math.hypot(bundle.x - visibleResources[i].x, bundle.y - visibleResources[i].y);
-          if (dist < minDist) {
-            minDist = dist;
-            nearest = visibleResources[i];
-          }
-        }
-        
-        return nearest;
-      },
-
-      // Update resource ecology (carrying capacity model)
-      updateEcology(dt) {
-        // If plant ecology is enabled, it handles all resource management!
-        if (CONFIG.plantEcology.enabled) {
-          // Plant ecology manages resources via fertility, seed dispersal, etc.
-          // Just update carrying capacity for mitosis population limits
-          const aliveCount = this.bundles.filter(b => b.alive).length;
-          this.carryingCapacity = Math.max(
-            CONFIG.resourceStableMin, 
-            Math.floor(this.resources.length * 1.2)  // Loose cap based on current resources
-          );
-          return;
-        }
-        
-        // Legacy system (only used when plant ecology disabled)
-        if (!CONFIG.resourceDynamicCount) return; // Skip if using fixed count
-        
-        // Resource pressure decays slowly over time (ecosystem recovery)
-        this.resourcePressure = Math.max(0, this.resourcePressure - 0.001 * dt);
-        
-        // Calculate current target carrying capacity based on pressure
-        // Linearly interpolate from initial abundance to stable minimum
-        const targetCapacity = Math.floor(
-          CONFIG.resourceStableMin + 
-          (CONFIG.resourceInitialMax - CONFIG.resourceStableMin) * (1 - this.resourcePressure)
-        );
-        
-        // Gradually adjust carrying capacity toward target
-        this.carryingCapacity = Math.max(CONFIG.resourceStableMin, targetCapacity);
-        
-        // Random resource spawning (if below stable max and below carrying capacity)
-        if (this.resources.length < CONFIG.resourceStableMax && 
-            this.resources.length < this.carryingCapacity) {
-          const spawnChance = CONFIG.resourceRecoveryChance * dt;
-          if (TcRandom.random() < spawnChance) {
-            const cx = canvasWidth / 2, cy = canvasHeight / 2;
-            const res = new Resource(cx, cy, CONFIG.resourceRadius);
-            res.respawn();
-            this.resources.push(res);
-          }
-        }
-        
-        // Remove excess resources if carrying capacity dropped
-        while (this.resources.length > this.carryingCapacity) {
-          this.resources.pop();
-        }
-      },
-
-      // Handle resource collection with ecology effects
-      onResourceCollected() {
-        // Plant ecology handles depletion via fertility system
-        if (CONFIG.plantEcology.enabled) return;
-        
-        // Legacy system only
-        if (!CONFIG.resourceDynamicCount) return;
-        
-        // Increase depletion pressure (simulates ecosystem stress from harvesting)
-        this.resourcePressure = Math.min(1, this.resourcePressure + CONFIG.resourceDepletionRate);
-      }
-    };
+    const World = createWorld({
+      Trail,
+      getCanvasWidth: () => canvasWidth,
+      getCanvasHeight: () => canvasHeight,
+      getGlobalTick: () => globalTick,
+      setGlobalTick: (value) => { globalTick = value; },
+      Ledger,
+      Links,
+      Bundle,
+      Resource,
+      getPerformanceNow: () => performance.now()
+    });
     World.reset();
     
     // Expose World globally for console access
