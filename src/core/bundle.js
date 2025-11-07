@@ -4,13 +4,14 @@ import { buildObservation } from '../../observations.js';
 import { SignalResponseAnalytics } from '../../analysis/signalResponseAnalytics.js';
 import { SignalField } from '../../signalField.js';
 import { TcRandom } from '../../tcStorage.js';
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const mix = (a, b, t) => a + (b - a) * t;
-const smoothstep = (e0, e1, x) => {
-  const t = clamp((x - e0) / Math.max(1e-6, e1 - e0), 0, 1);
-  return t * t * (3 - 2 * t);
-};
+import { computeSensingUpdate } from './sensing.js';
+import { computeMetabolicCost } from '../systems/metabolism.js';
+import { resolveControllerAction } from '../systems/controllerAction.js';
+import { computeSteering } from '../systems/steering.js';
+import { computeMovement, evaluateResidualEffects } from '../systems/movement.js';
+import { evaluateMitosisReadiness } from '../systems/mitosis.js';
+import { evaluateDecayTransition } from '../systems/decay.js';
+import { clamp, mix, smoothstep } from '../utils/math.js';
 const randomRange = (min, max) => TcRandom.random() * (max - min) + min;
 
 const SIGNAL_CHANNELS = {
@@ -130,54 +131,26 @@ export function createBundleClass(context) {
 
       // Signal emission bookkeeping (per-channel amplitudes per tick)
       this.signal_profile = {};
+
+      // Cached mitosis readiness (updated each frame)
+      this._mitosisState = { mitosisReady: false, buddingReady: false };
     }
 
     computeSensoryRange(dt) {
-      const base = CONFIG.aiSensoryRangeBase;
-      const max  = CONFIG.aiSensoryRangeMax;
+      const result = computeSensingUpdate({
+        extendedSensing: this.extendedSensing,
+        alive: this.alive,
+        frustration: this.frustration,
+        hunger: this.hunger,
+        currentSensoryRange: this.currentSensoryRange,
+        targetSensoryRange: this._targetSensoryRange,
+        chi: this.chi
+      }, dt, CONFIG);
 
-      if (!this.extendedSensing || !this.alive) {
-        this._targetSensoryRange = base;
-      } else {
-        const f = clamp(this.frustration, 0, 1);
-        const h = clamp(this.hunger, 0, 1);
-        // Hunger amplifies sensory expansion - desperate agents sense further
-        const hungerAmp = 1 + (CONFIG.hungerSenseAmp - 1) * h;
-        const bias = smoothstep(0.0, 1.0, f) * CONFIG.aiSenseBiasFromFrustr * hungerAmp;
-        this._targetSensoryRange = clamp(base + (max - base) * bias, base, max);
-      }
+      this._targetSensoryRange = result.targetRange;
+      this.currentSensoryRange = result.currentSensoryRange;
 
-      // Slew current toward target (visual & smooth)
-      const slew = CONFIG.aiSenseSlewPerSec * dt;
-      const delta = clamp(this._targetSensoryRange - this.currentSensoryRange, -slew, slew);
-      const newRange = clamp(this.currentSensoryRange + delta, base, max);
-
-      // χ cost proportional to *delta above base* for this frame + quadratic holding cost
-      const achievedBoost = Math.max(0, newRange - this.currentSensoryRange);
-      const pxPerChiPerSec = CONFIG.aiSenseRangePerChi;
-      const chiPerSecForBoost = achievedBoost > 0 ? (achievedBoost / dt) / pxPerChiPerSec : 0;
-      let cost = chiPerSecForBoost * dt;
-
-      // Quadratic holding cost - scales with range²! Makes max range very expensive
-      const aboveBase = Math.max(0, newRange - base);
-      const holdChiPerSec = (aboveBase * aboveBase) / (pxPerChiPerSec * 100);
-      cost += holdChiPerSec * dt;
-
-      // Hunger scaling - hungry agents can't afford expensive sensing
-      const h = clamp(this.hunger, 0, 1);
-      const hungerPenalty = 1 + h * 0.5;  // 0-50% more expensive when hungry
-      cost *= hungerPenalty;
-
-      // Don't overspend χ
-      if (cost > this.chi) {
-        const scale = this.chi / Math.max(cost, 1e-6);
-        const scaledBoost = achievedBoost * scale;
-        cost = this.chi;
-        this.currentSensoryRange = clamp(this.currentSensoryRange + scaledBoost, base, max);
-      } else {
-        this.currentSensoryRange = newRange;
-      }
-      return cost;
+      return result.cost;
     }
 
     computeAIDirection(resource) {
@@ -368,9 +341,24 @@ export function createBundleClass(context) {
     update(dt, resource) {
       if (!this.alive) return;
 
-      // Base metabolism + sensing costs
-      let chiSpend = CONFIG.baseDecayPerSecond * dt;
-      chiSpend += this.computeSensoryRange(dt);
+      const metabolicCost = computeMetabolicCost({
+        baseRate: CONFIG.baseDecayPerSecond,
+        dt
+      });
+      let chiSpend = metabolicCost;
+
+      const sensingResult = computeSensingUpdate({
+        extendedSensing: this.extendedSensing,
+        alive: this.alive,
+        frustration: this.frustration,
+        hunger: this.hunger,
+        currentSensoryRange: this.currentSensoryRange,
+        targetSensoryRange: this._targetSensoryRange,
+        chi: this.chi
+      }, dt, CONFIG);
+      this._targetSensoryRange = sensingResult.targetRange;
+      this.currentSensoryRange = sensingResult.currentSensoryRange;
+      chiSpend += sensingResult.cost;
 
       // Refresh signal perception once per tick before decisions
       this.captureSignalContext();
@@ -385,79 +373,110 @@ export function createBundleClass(context) {
       const world = worldRef();
 
       // === ROUTING: Controller vs Heuristic AI ===
-      if (this.useController && this.controller) {
-        // Use controller (learned or wrapped heuristic)
-        const obs = buildObservation(this, resource, Trail, tick, world?.resources ?? []);
-        const action = this.controller.act(obs);
-        this.lastAction = action; // Store for display
-        const result = this.applyAction(action, dt);
-        chiSpend += result.chiSpend;
+      const controlDecision = resolveControllerAction({
+        useController: this.useController,
+        controller: this.controller,
+        buildObservation,
+        observationArgs: [this, resource, Trail, tick, world?.resources ?? []]
+      });
+
+      if (controlDecision.mode === 'controller') {
+        const action = controlDecision.action;
+        this.lastAction = action;
+        const result = this.applyAction(action, dt) || {};
+        if (Number.isFinite(result.chiSpend)) {
+          chiSpend += result.chiSpend;
+        }
       } else {
-        // Use original heuristic AI
-        this.updateHeuristicMovement(dt, resource);
+        const steering = computeSteering({
+          bundle: this,
+          dt,
+          resource,
+          config: CONFIG,
+          clamp,
+          mix,
+          smoothstep,
+          held
+        });
 
-        // Integrate motion
-        const oldX = this.x, oldY = this.y;
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
+        this._lastDirX = steering.lastDirX;
+        this._lastDirY = steering.lastDirY;
+        this.heading = steering.heading;
+        this.vx = steering.vx;
+        this.vy = steering.vy;
 
-        const movedDist = Math.hypot(this.x - oldX, this.y - oldY);
-        if (movedDist > 0) chiSpend += CONFIG.moveCostPerSecond * dt;
+        const movement = computeMovement({
+          position: { x: this.x, y: this.y },
+          velocity: { vx: this.vx, vy: this.vy },
+          dt,
+          size: this.size,
+          canvasWidth: width(),
+          canvasHeight: height(),
+          moveCostPerSecond: CONFIG.moveCostPerSecond,
+          depositPerSec: CONFIG.depositPerSec,
+          chi: this.chi,
+          agentId: this.id
+        });
 
-        // Stay inside viewport
-        const half = this.size / 2;
-        const canvasW = width();
-        const canvasH = height();
-        this.x = clamp(this.x, half, canvasW - half);
-        this.y = clamp(this.y, half, canvasH - half);
+        this.x = movement.position.x;
+        this.y = movement.position.y;
+        if (movement.chiCost > 0) chiSpend += movement.chiCost;
 
-        // Deposit trail when moving
-        if (movedDist > 0) {
-          const health = clamp(this.chi / 20, 0.2, 1.0);
-          const dep = CONFIG.depositPerSec * health * dt;
-          Trail.deposit(this.x, this.y, dep, this.id);
-          Trail.deposit(this.x - half, this.y - half, dep * 0.25, this.id);
-          Trail.deposit(this.x + half, this.y - half, dep * 0.25, this.id);
-          Trail.deposit(this.x - half, this.y + half, dep * 0.25, this.id);
-          Trail.deposit(this.x + half, this.y + half, dep * 0.25, this.id);
+        for (const deposit of movement.deposits) {
+          Trail.deposit(deposit.x, deposit.y, deposit.amount, deposit.authorId);
         }
 
-        // Residual χ reuse
-        if (movedDist > 0) {
-          const { value, authorId, age } = Trail.sample(this.x, this.y);
-          const isDifferentAuthor = authorId !== this.id && authorId !== 0;
-          const isOldEnough = age >= CONFIG.trailCooldownTicks;
+        if (movement.movedDist > 0) {
+          const sample = Trail.sample(this.x, this.y) || { value: 0, authorId: 0, age: Infinity };
+          const residual = evaluateResidualEffects({
+            movedDist: movement.movedDist,
+            sample,
+            dt,
+            config: {
+              residualCapPerTick: CONFIG.residualCapPerTick,
+              residualGainPerSec: CONFIG.residualGainPerSec,
+              trailCooldownTicks: CONFIG.trailCooldownTicks,
+              ownTrailPenalty: CONFIG.ownTrailPenalty,
+              ownTrailGraceAge: CONFIG.ownTrailGraceAge
+            },
+            agentId: this.id
+          });
 
-          // Gain from other agents' trails
-          if (isDifferentAuthor && isOldEnough) {
-            const squashed = Math.sqrt(value);
-            const gain = Math.min(CONFIG.residualCapPerTick, CONFIG.residualGainPerSec * squashed * dt);
-            this.chi += gain;
-            Ledger.credit(authorId, gain);
-          }
-
-          // Penalty for walking on own fresh trail (discourages circuits)
-          if (CONFIG.ownTrailPenalty > 0) {
-            const isOwnTrail = authorId === this.id;
-            const isFresh = age < CONFIG.ownTrailGraceAge;
-            if (isOwnTrail && isFresh && value > 0.1) {
-              const penalty = CONFIG.ownTrailPenalty * dt;
-              this.chi -= penalty;
+          if (residual.chiGain > 0) {
+            this.chi += residual.chiGain;
+            if (residual.creditAuthorId !== null) {
+              Ledger.credit(residual.creditAuthorId, residual.chiGain);
             }
           }
+
+          if (residual.chiPenalty > 0) {
+            this.chi -= residual.chiPenalty;
+          }
         }
       }
 
-      // Pay costs
-      this.chi = Math.max(0, this.chi - chiSpend);
-      if (this.chi === 0 && this.alive) {
-        this.alive = false;
-        // Track death for decay system
-        this.deathTick = tick;
-        this.chiAtDeath = 0; // Already spent all chi
-        // Signal bonded survivors and remove dead links immediately
+      const decayResult = evaluateDecayTransition({
+        chi: this.chi,
+        chiSpend,
+        alive: this.alive,
+        tick,
+        deathTick: this.deathTick,
+        chiAtDeath: this.chiAtDeath
+      });
+
+      this.chi = decayResult.chi;
+      this.alive = decayResult.alive;
+      this.deathTick = decayResult.deathTick;
+      this.chiAtDeath = decayResult.chiAtDeath;
+
+      if (decayResult.shouldProvokeBondedExploration) {
         provokeBondedExploration(this.id);
       }
+
+      this._mitosisState = evaluateMitosisReadiness({
+        canBud: () => this.canBud(),
+        canMitosis: () => this.canMitosis()
+      });
 
       // Decay bereavement boost (per tick)
       if (this.bereavementBoostTicks > 0) this.bereavementBoostTicks--;
@@ -640,46 +659,23 @@ export function createBundleClass(context) {
     }
 
     updateHeuristicMovement(dt, resource) {
-      // Steering (manual only for agent 1 in MANUAL mode)
       this.captureSignalContext();
-      let want = { dx: 0, dy: 0 };
-      if (CONFIG.autoMove || this.id !== 1) {
-        want = this.computeAIDirection(resource);
-      } else {
-        if (held.has("w") || held.has("arrowup")) want.dy -= 1;
-        if (held.has("s") || held.has("arrowdown")) want.dy += 1;
-        if (held.has("a") || held.has("arrowleft")) want.dx -= 1;
-        if (held.has("d") || held.has("arrowright")) want.dx += 1;
-        const m = Math.hypot(want.dx, want.dy);
-        if (m > 1e-6) { want.dx /= m; want.dy /= m; }
-        else { want.dx = this._lastDirX; want.dy = this._lastDirY; }
-      }
+      const steering = computeSteering({
+        bundle: this,
+        dt,
+        resource,
+        config: CONFIG,
+        clamp,
+        mix,
+        smoothstep,
+        held
+      });
 
-      // Frustration-driven turn agility & speed surge (amplified by hunger)
-      const f = clamp(this.frustration, 0, 1);
-      const h = clamp(this.hunger, 0, 1);
-      const turnRate = CONFIG.aiTurnRateBase + CONFIG.aiTurnRateGain * f;
-      // Hunger amplifies speed surge - starving agents move faster in desperation
-      const hungerAmp = 1 + (CONFIG.hungerSurgeAmp - 1) * h;
-      const surge = (1.0 + CONFIG.aiSurgeMax * smoothstep(0.2, 1.0, f)) * hungerAmp;
-
-      // Steer heading
-      const steerWeight = clamp(turnRate * dt, 0, 1);
-      const dirX = mix(this._lastDirX, want.dx, steerWeight);
-      const dirY = mix(this._lastDirY, want.dy, steerWeight);
-      const dirN = Math.hypot(dirX, dirY) || 1;
-      this._lastDirX = dirX / dirN; this._lastDirY = dirY / dirN;
-
-      // Update heading angle
-      this.heading = Math.atan2(this._lastDirY, this._lastDirX);
-
-      // Velocity relaxes to target
-      const speed = CONFIG.moveSpeedPxPerSec * surge;
-      const targetVx = this._lastDirX * speed;
-      const targetVy = this._lastDirY * speed;
-      const velLerp = 1 - Math.exp(-6 * dt);
-      this.vx = mix(this.vx, targetVx, velLerp);
-      this.vy = mix(this.vy, targetVy, velLerp);
+      this._lastDirX = steering.lastDirX;
+      this._lastDirY = steering.lastDirY;
+      this.heading = steering.heading;
+      this.vx = steering.vx;
+      this.vy = steering.vy;
     }
 
     draw(ctx) {
