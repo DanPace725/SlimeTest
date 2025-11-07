@@ -17,6 +17,15 @@ const path = {
 const __filename = '';
 const __dirname = '';
 const hasFs = false;
+const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+const localStorageRef = (() => {
+  if (!isBrowser) return null;
+  try {
+    return window.localStorage;
+  } catch (err) {
+    return null;
+  }
+})();
 
 import { applyTcConfig } from './tcStorage.js';
 import { TapeMachineRegistry } from './tc/tcTape.js';
@@ -1031,15 +1040,21 @@ const ConfigIO = {
     }
     CURRENT_BASE_SNAPSHOT = snapshot;   // <- becomes the new "revert to" base
     onConfigChanged();
-    refreshPanelControls();             // sync UI with applied values  
+    refreshPanelControls();             // sync UI with applied values
     updateDirtyDot();                   // refresh dirty state
   },
   loadProfiles() {
-    try { return JSON.parse(localStorage.getItem(PROFILES_KEY) || "[]"); }
+    if (!localStorageRef) return [];
+    try { return JSON.parse(localStorageRef.getItem(PROFILES_KEY) || "[]"); }
     catch { return []; }
   },
   saveProfiles(list) {
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(list));
+    if (!localStorageRef) return;
+    try {
+      localStorageRef.setItem(PROFILES_KEY, JSON.stringify(list));
+    } catch (err) {
+      // Ignore storage errors in non-browser or quota-limited contexts
+    }
   }
 };
 
@@ -1073,9 +1088,13 @@ function onConfigChanged() {
 }
 
 // ---- Panel helpers ----
-function panelEl() { return document.getElementById("config-panel"); }
+function panelEl() {
+  if (!isBrowser) return null;
+  return document.getElementById("config-panel");
+}
 
 function refreshPanelControls() {
+  if (!isBrowser) return;
   const root = panelEl();
   if (!root) return;
   root.querySelectorAll("[data-path]").forEach(inp => {
@@ -1111,6 +1130,7 @@ function currentVsBaseSnapshot() {
 }
 
 function updateDirtyDot() {
+  if (!isBrowser) return;
   const dot = document.getElementById("cfg-dirty");
   if (!dot) return;
   const { cur, base } = currentVsBaseSnapshot();
@@ -1120,6 +1140,7 @@ function updateDirtyDot() {
 // ---- UI builder ----
 let panelOpen = false;
 function buildConfigPanel(){
+  if (!isBrowser) return null;
   // panel shell
   const wrap = document.createElement("div");
   wrap.id = "config-panel";
@@ -1354,15 +1375,17 @@ function buildConfigPanel(){
   }
 
   wrap.querySelector("#cfg-close").onclick = () => togglePanel(false);
+  return wrap;
 }
 
 function togglePanel(force){
+  if (!isBrowser) return;
   const el = document.getElementById("config-panel") || buildConfigPanel();
   const node = document.getElementById("config-panel");
   if (!node) return;
   panelOpen = force ?? !panelOpen;
   node.style.display = panelOpen ? "block" : "none";
-  
+
   // Trigger canvas resize when panel visibility changes
   if (typeof window.resizeCanvas === 'function') {
     window.resizeCanvas();
@@ -1370,20 +1393,22 @@ function togglePanel(force){
 }
 
 // hotkeys
-window.addEventListener("keydown", (e) => {
-  if (e.code === "KeyO") { togglePanel(); e.preventDefault(); }
-  // quick-load profiles 1..9
-  if (/Digit[1-9]/.test(e.code)) {
-    const idx = Number(e.code.slice(-1)) - 1;
-    const list = ConfigIO.loadProfiles();
-    if (list[idx]) { ConfigIO.apply(list[idx].snapshot); }
-  }
-  // Ctrl/Cmd+U: revert
-  if (e.code === "KeyU" && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    if (CURRENT_BASE_SNAPSHOT) ConfigIO.apply(CURRENT_BASE_SNAPSHOT);
-  }
-});
+if (isBrowser) {
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "KeyO") { togglePanel(); e.preventDefault(); }
+    // quick-load profiles 1..9
+    if (/Digit[1-9]/.test(e.code)) {
+      const idx = Number(e.code.slice(-1)) - 1;
+      const list = ConfigIO.loadProfiles();
+      if (list[idx]) { ConfigIO.apply(list[idx].snapshot); }
+    }
+    // Ctrl/Cmd+U: revert
+    if (e.code === "KeyU" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (CURRENT_BASE_SNAPSHOT) ConfigIO.apply(CURRENT_BASE_SNAPSHOT);
+    }
+  });
+}
 
 // ========== Browser-Friendly TC Helpers ==========
 
