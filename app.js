@@ -1099,6 +1099,14 @@ import { collectResource } from './src/systems/resourceSystem.js';
     };
 
     const updateAgentsPhase = ({ dt, tickContext }) => {
+      try {
+        ParticipationManager.update(dt);
+      } catch (error) {
+        if (CONFIG?.participation?.debugLog && typeof console !== 'undefined' && console.debug) {
+          console.debug('[Participation] update error:', error);
+        }
+      }
+
       for (let i = 0; i < World.bundles.length; i++) {
         for (let j = i + 1; j < World.bundles.length; j++) {
           const a = World.bundles[i];

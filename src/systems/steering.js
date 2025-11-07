@@ -1,4 +1,5 @@
 import { clamp, mix, smoothstep } from '../utils/math.js';
+import ParticipationManager from './participation.js';
 
 const normalizeVector = ({ dx, dy }, fallback) => {
   const mag = Math.hypot(dx, dy);
@@ -31,6 +32,39 @@ export function computeSteering({
     desired = normalizeVector(manual, { dx: bundle._lastDirX, dy: bundle._lastDirY });
   } else {
     desired = { dx: bundle._lastDirX, dy: bundle._lastDirY };
+  }
+
+  let participationForce = { ax: 0, ay: 0 };
+  if (ParticipationManager && typeof ParticipationManager.applyForce === 'function') {
+    const desiredBeforeForce = { ...desired };
+    participationForce = ParticipationManager.applyForce({
+      bundle,
+      dt,
+      desired: desiredBeforeForce,
+      baseSpeed: config.moveSpeedPxPerSec
+    }) || participationForce;
+
+    if (typeof bundle?.onParticipationForce === 'function') {
+      try {
+        bundle.onParticipationForce(participationForce, {
+          desired: desiredBeforeForce,
+          dt,
+          resource,
+          config
+        });
+      } catch (error) {
+        if (config?.participation?.debugLog && typeof console !== 'undefined' && console.debug) {
+          console.debug('[Steering] participation hook error:', error);
+        }
+      }
+    }
+  }
+
+  if (participationForce.ax !== 0 || participationForce.ay !== 0) {
+    desired = {
+      dx: desired.dx + participationForce.ax,
+      dy: desired.dy + participationForce.ay
+    };
   }
 
   const f = clampFn(bundle.frustration, 0, 1);

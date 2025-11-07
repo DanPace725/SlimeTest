@@ -1,5 +1,32 @@
+import { clamp } from '../utils/math.js';
+
 const noop = () => {};
 const noopNumber = () => 0;
+
+const EPSILON = 1e-6;
+const DEFAULT_FORCE_FRACTION = 0.35;
+const MIN_FADE = 1e-3;
+
+const toFiniteNumber = (value, fallback = 0) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const sanitizeForce = (force) => {
+  if (!force || typeof force !== 'object') {
+    return { ax: 0, ay: 0 };
+  }
+  const ax = toFiniteNumber(force.ax, 0);
+  const ay = toFiniteNumber(force.ay, 0);
+  return { ax, ay };
+};
+
+const resetForce = (stateRef) => {
+  stateRef.lastForce = { ax: 0, ay: 0 };
+};
 
 const state = {
   mode: 'idle',
@@ -11,7 +38,8 @@ const state = {
     delta: 0,
     modeStart: 0,
     inactiveTime: 0
-  }
+  },
+  lastForce: { ax: 0, ay: 0 }
 };
 
 const hooks = {
@@ -50,6 +78,10 @@ function setActive(isActive) {
   if (nextActive !== state.isActive) {
     state.isActive = nextActive;
     state.timers.inactiveTime = nextActive ? 0 : state.timers.inactiveTime;
+    if (!nextActive) {
+      clearActiveFieldEntries();
+      resetForce(state);
+    }
   }
 }
 
@@ -73,14 +105,19 @@ function setActiveFieldEntry(key, value) {
     state.activeFields.delete(key);
     return;
   }
+  const existing = state.activeFields.get(key);
+  const createdAt = existing?.createdAt ?? state.timers.elapsed;
   state.activeFields.set(key, {
+    ...existing,
     ...value,
+    createdAt,
     updatedAt: state.timers.elapsed
   });
 }
 
 function clearActiveFieldEntries() {
   state.activeFields.clear();
+  resetForce(state);
 }
 
 function update(dt) {
@@ -90,19 +127,125 @@ function update(dt) {
   if (!state.isActive) {
     state.timers.inactiveTime += delta;
   }
-  hooks.onUpdate(state, getConfig(), delta);
+  const config = getConfig();
+  if (!config?.enabled && state.isActive) {
+    setActive(false);
+  }
+  hooks.onUpdate(state, config, delta);
 }
 
-function applyForce(agentBundle) {
-  if (!state.isActive) {
+const computeParticipationForce = (context, config) => {
+  const { bundle } = context || {};
+  if (!bundle || state.activeFields.size === 0) {
     return { ax: 0, ay: 0 };
   }
-  const result = hooks.onApplyForce(state, getConfig(), agentBundle);
-  if (result && typeof result === 'object') {
-    const { ax = 0, ay = 0 } = result;
-    return { ax, ay };
+
+  const agentX = toFiniteNumber(bundle.x, 0);
+  const agentY = toFiniteNumber(bundle.y, 0);
+  const baseSpeed = Math.max(0, toFiniteNumber(context?.baseSpeed, 0));
+  const maxFraction = clamp(
+    toFiniteNumber(context?.maxFraction ?? config?.maxForceFraction ?? DEFAULT_FORCE_FRACTION, DEFAULT_FORCE_FRACTION),
+    0,
+    1
+  );
+  const now = state.timers.elapsed;
+
+  let sumX = 0;
+  let sumY = 0;
+  const staleKeys = [];
+
+  for (const [key, entryRaw] of state.activeFields.entries()) {
+    const entry = entryRaw || {};
+    const targetX = toFiniteNumber(entry.x ?? entry.position?.x, NaN);
+    const targetY = toFiniteNumber(entry.y ?? entry.position?.y, NaN);
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+      continue;
+    }
+
+    const dx = targetX - agentX;
+    const dy = targetY - agentY;
+    const distSq = dx * dx + dy * dy;
+    const dist = Math.sqrt(distSq);
+    if (dist <= EPSILON) {
+      continue;
+    }
+
+    const mode = entry.mode || state.mode;
+    const modeConfig = config?.modes?.[mode] || {};
+    const strength = Math.max(0, toFiniteNumber(entry.strength ?? modeConfig.strength, 0));
+    const radius = Math.max(0, toFiniteNumber(entry.radius ?? modeConfig.radius, 0));
+    if (strength <= 0 || radius <= 0) {
+      continue;
+    }
+
+    const falloff = clamp(1 - dist / radius, 0, 1);
+    if (falloff <= 0) {
+      continue;
+    }
+
+    const decay = Math.max(0, toFiniteNumber(entry.decay ?? modeConfig.decay, 0));
+    const age = Math.max(0, now - toFiniteNumber(entry.updatedAt, now));
+    let fade = 1;
+    if (decay > 0 && age > 0) {
+      fade = Math.exp(-decay * age);
+      if (fade < MIN_FADE) {
+        staleKeys.push(key);
+        continue;
+      }
+    }
+
+    const influence = strength * falloff * fade;
+    if (influence <= 0) {
+      continue;
+    }
+
+    const dirX = dx / dist;
+    const dirY = dy / dist;
+    sumX += dirX * influence;
+    sumY += dirY * influence;
   }
-  return { ax: 0, ay: 0 };
+
+  if (staleKeys.length > 0) {
+    for (const key of staleKeys) {
+      state.activeFields.delete(key);
+    }
+  }
+
+  const mag = Math.hypot(sumX, sumY);
+  if (mag <= EPSILON) {
+    return { ax: 0, ay: 0 };
+  }
+
+  const maxMagnitude = baseSpeed > 0 ? baseSpeed * maxFraction : maxFraction;
+  if (maxMagnitude > 0 && mag > maxMagnitude) {
+    const scale = maxMagnitude / mag;
+    sumX *= scale;
+    sumY *= scale;
+  }
+
+  return { ax: sumX, ay: sumY };
+};
+
+function applyForce(context) {
+  if (!state.isActive) {
+    resetForce(state);
+    return { ax: 0, ay: 0 };
+  }
+
+  const config = getConfig();
+  if (!config?.enabled) {
+    clearActiveFieldEntries();
+    return { ax: 0, ay: 0 };
+  }
+
+  const computed = computeParticipationForce(context, config);
+  const hookResult = hooks.onApplyForce(state, config, {
+    ...context,
+    computed
+  });
+  const force = sanitizeForce(hookResult && typeof hookResult === 'object' ? hookResult : computed);
+  state.lastForce = force;
+  return force;
 }
 
 function sampleEnergy(agentBundle) {
@@ -117,6 +260,10 @@ function sampleSignal(agentBundle) {
 
 function draw(ctx) {
   hooks.onDraw(state, getConfig(), ctx);
+}
+
+function getLastForce() {
+  return { ...state.lastForce };
 }
 
 function setConfig(resolver) {
@@ -218,7 +365,8 @@ const manager = {
   applyForce,
   sampleEnergy,
   sampleSignal,
-  draw
+  draw,
+  getLastForce
 };
 
 export default manager;
