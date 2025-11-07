@@ -101,21 +101,47 @@ export const CONFIG = {
 
   // === Turing Completeness Recording ===
   tc: {
-    enabled: false,
+    enabled: false,  // Set to true to enable TC features (Rule 110, Turing machines)
     seed: 0,
     tickSalt: 0x9e3779b9,
     maxCachedChunks: 64,
-    updateCadence: null,
-    mode: null,
+    updateCadence: null,  // Set to 1 to run every tick, or null for default cadence
+    mode: null,  // Set to 'rule110' to enable Rule 110 cellular automaton
     snapshots: {
+      rule110: {
+        capture: false,  // Set to true to capture Rule 110 snapshots
+        schema: 'schemas/tc_rule110_snapshot.schema.json'
+      },
       turingTape: {
-        capture: false,
+        capture: false,  // Set to true to capture Turing machine tape snapshots
         schema: 'schemas/tc_tape_snapshot.schema.json'
       }
     },
     machines: {
+      // Turing machine definitions
+      // In browser: use inline definitions (objects)
+      // In Node.js: can use file paths (strings) like 'tc/machines/file.json'
       unaryIncrementer: {
-        table: 'tc/machines/unary_incrementer.json'
+        // File path (only works in Node.js with fs module)
+        table: 'tc/machines/unary_incrementer.json',
+        
+        // OR: Inline definition (works in browser!)
+        // Uncomment to use inline definition instead of file:
+        // table: {
+        //   id: "unaryIncrementer",
+        //   description: "Moves right across a unary number and appends a trailing 1 before halting.",
+        //   alphabet: ["_", "1"],
+        //   blank: "_",
+        //   initialState: "scan",
+        //   haltStates: ["halt"],
+        //   states: {
+        //     scan: {
+        //       "1": { write: "1", move: "R", next: "scan" },
+        //       "_": { write: "1", move: "N", next: "halt", halt: true }
+        //     },
+        //     halt: {}
+        //   }
+        // }
       }
     }
   },
@@ -1331,4 +1357,63 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// ========== Browser-Friendly TC Helpers ==========
+
+/**
+ * Enable Turing Complete features in browser
+ * Call this from browser console: enableTC() or enableTC('rule110')
+ * 
+ * @param {string} mode - 'rule110' for Rule 110 cellular automaton, or 'tape' for Turing machines
+ * @param {object} options - Additional options like { seed, updateCadence, captureSnapshots }
+ */
+export function enableTC(mode = 'rule110', options = {}) {
+  const {
+    seed = 0,
+    updateCadence = 1,  // Run every tick
+    captureSnapshots = false
+  } = options;
+  
+  CONFIG.tc.enabled = true;
+  CONFIG.tc.seed = seed;
+  CONFIG.tc.updateCadence = updateCadence;
+  CONFIG.tc.mode = mode;
+  
+  if (mode === 'rule110') {
+    CONFIG.tc.snapshots.rule110.capture = captureSnapshots;
+    console.log('✅ TC enabled: Rule 110 cellular automaton');
+    console.log('   - Runs every tick alongside your simulation');
+    console.log('   - Deterministic with seed:', seed);
+  } else if (mode === 'tape') {
+    CONFIG.tc.snapshots.turingTape.capture = captureSnapshots;
+    console.log('✅ TC enabled: Turing machine tape system');
+    console.log('   - Turing machines can execute alongside simulation');
+    console.log('   - Use TapeMachineRegistry to register machines');
+  }
+  
+  // Apply TC config
+  if (typeof applyTcConfig === 'function') {
+    applyTcConfig(CONFIG.tc);
+  }
+  
+  console.log('   💡 Reload the page to apply TC settings fully');
+  return CONFIG.tc;
+}
+
+/**
+ * Disable TC features
+ */
+export function disableTC() {
+  CONFIG.tc.enabled = false;
+  CONFIG.tc.mode = null;
+  CONFIG.tc.snapshots.rule110.capture = false;
+  CONFIG.tc.snapshots.turingTape.capture = false;
+  console.log('✅ TC disabled');
+  return CONFIG.tc;
+}
+
+// Make available globally in browser console
+if (typeof window !== 'undefined') {
+  window.enableTC = enableTC;
+  window.disableTC = disableTC;
+}
 
