@@ -15,6 +15,7 @@ export function initializeInputManager({
   getTrail,
   getSignalField,
   getTrainingUI,
+  getParticipationManager,
   CONFIG
 }) {
   const held = new Set();
@@ -25,9 +26,107 @@ export function initializeInputManager({
     showAgentDashboard: false
   };
   let showHotkeyStrip = true;
+  const modifierState = {
+    shift: false,
+    eKey: false
+  };
+
+  const updateModifierState = (event, isDown) => {
+    const { code } = event || {};
+    switch (code) {
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        modifierState.shift = isDown;
+        break;
+      case 'KeyE':
+        modifierState.eKey = isDown;
+        break;
+      default:
+        break;
+    }
+  };
+
+  const getParticipation = () => {
+    if (!CONFIG?.participation?.enabled) {
+      return null;
+    }
+    if (typeof getParticipationManager !== 'function') {
+      return null;
+    }
+    const manager = getParticipationManager();
+    return manager && typeof manager.handlePointerEvent === 'function' ? manager : null;
+  };
+
+  const buildPointerPayload = (event) => {
+    if (!event) return null;
+    const rect = canvas?.getBoundingClientRect?.();
+    const x = typeof event.offsetX === 'number'
+      ? event.offsetX
+      : typeof rect === 'object'
+        ? event.clientX - rect.left
+        : event.clientX;
+    const y = typeof event.offsetY === 'number'
+      ? event.offsetY
+      : typeof rect === 'object'
+        ? event.clientY - rect.top
+        : event.clientY;
+
+    return {
+      x,
+      y,
+      button: event.button,
+      buttons: event.buttons,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      isPrimary: event.isPrimary,
+      modifiers: {
+        shift: Boolean(event.shiftKey || modifierState.shift),
+        eKey: Boolean(modifierState.eKey),
+        alt: Boolean(event.altKey),
+        ctrl: Boolean(event.ctrlKey),
+        meta: Boolean(event.metaKey)
+      },
+      nativeEvent: event
+    };
+  };
+
+  const forwardPointerEvent = (type, event) => {
+    const manager = getParticipation();
+    if (!manager) {
+      return;
+    }
+    const payload = buildPointerPayload(event);
+    if (!payload) {
+      return;
+    }
+    try {
+      manager.handlePointerEvent(type, payload);
+    } catch (error) {
+      if (CONFIG?.participation?.debugLog && typeof console !== 'undefined' && console.debug) {
+        console.debug('[Participation] Pointer handler error:', error);
+      }
+    }
+  };
+
+  const handlePointerDown = (event) => {
+    forwardPointerEvent('pointerdown', event);
+  };
+
+  const handlePointerMove = (event) => {
+    forwardPointerEvent('pointermove', event);
+  };
+
+  const handlePointerUp = (event) => {
+    forwardPointerEvent('pointerup', event);
+  };
+
+  const handlePointerCancel = (event) => {
+    forwardPointerEvent('pointercancel', event);
+  };
 
   const handleKeydown = (event) => {
     const e = event || window.event;
+    updateModifierState(e, true);
     const key = e.key.toLowerCase();
     if (movementKeys.includes(key)) {
       held.add(key);
@@ -149,14 +248,37 @@ export function initializeInputManager({
   const handleKeyup = (event) => {
     const key = event.key.toLowerCase();
     held.delete(key);
+    updateModifierState(event, false);
+  };
+
+  const handleBlur = () => {
+    modifierState.shift = false;
+    modifierState.eKey = false;
   };
 
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('keyup', handleKeyup);
+  window.addEventListener('blur', handleBlur);
+
+  if (canvas && typeof canvas.addEventListener === 'function') {
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerCancel);
+    canvas.addEventListener('pointerleave', handlePointerCancel);
+  }
 
   const dispose = () => {
     window.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('keyup', handleKeyup);
+    window.removeEventListener('blur', handleBlur);
+    if (canvas && typeof canvas.removeEventListener === 'function') {
+      canvas.removeEventListener('pointerdown', handlePointerDown);
+      canvas.removeEventListener('pointermove', handlePointerMove);
+      canvas.removeEventListener('pointerup', handlePointerUp);
+      canvas.removeEventListener('pointercancel', handlePointerCancel);
+      canvas.removeEventListener('pointerleave', handlePointerCancel);
+    }
   };
 
   return { held, state, dispose };

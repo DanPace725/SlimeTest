@@ -23,6 +23,13 @@ const hooks = {
   onDraw: noop
 };
 
+const pointerHooks = {
+  onPointerDown: noop,
+  onPointerMove: noop,
+  onPointerUp: noop,
+  onPointerCancel: noop
+};
+
 function getConfig() {
   try {
     return hooks.configResolver(state) || {};
@@ -142,6 +149,51 @@ function setEmitters({
   return manager;
 }
 
+function setPointerHandlers({
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel
+} = {}) {
+  if (typeof onPointerDown === 'function') {
+    pointerHooks.onPointerDown = onPointerDown;
+  }
+  if (typeof onPointerMove === 'function') {
+    pointerHooks.onPointerMove = onPointerMove;
+  }
+  if (typeof onPointerUp === 'function') {
+    pointerHooks.onPointerUp = onPointerUp;
+  }
+  if (typeof onPointerCancel === 'function') {
+    pointerHooks.onPointerCancel = onPointerCancel;
+  }
+  return manager;
+}
+
+function handlePointerEvent(type, payload = {}) {
+  const handlerMap = {
+    pointerdown: pointerHooks.onPointerDown,
+    pointermove: pointerHooks.onPointerMove,
+    pointerup: pointerHooks.onPointerUp,
+    pointercancel: pointerHooks.onPointerCancel
+  };
+
+  const handler = handlerMap[type];
+  if (typeof handler !== 'function') {
+    return;
+  }
+
+  const config = getConfig();
+
+  try {
+    handler(state, config, payload);
+  } catch (error) {
+    if (config?.debugLog && typeof console !== 'undefined' && console.debug) {
+      console.debug('[Participation] Pointer handler threw:', error);
+    }
+  }
+}
+
 function resetTimers() {
   state.timers.elapsed = 0;
   state.timers.delta = 0;
@@ -160,6 +212,8 @@ const manager = {
   getConfig,
   setConfig,
   setEmitters,
+  setPointerHandlers,
+  handlePointerEvent,
   update,
   applyForce,
   sampleEnergy,

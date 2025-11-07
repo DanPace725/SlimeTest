@@ -36,6 +36,7 @@ import { createResourceClass } from './src/core/resource.js';
 import { createWorld } from './src/core/world.js';
 import { initializeCanvasManager } from './src/ui/canvasManager.js';
 import { initializeInputManager } from './src/ui/inputManager.js';
+import ParticipationManager from './src/systems/participation.js';
 import { startSimulation } from './src/core/simulationLoop.js';
 import { createTrainingModule } from './src/core/training.js';
 import { collectResource } from './src/systems/resourceSystem.js';
@@ -129,6 +130,8 @@ import { collectResource } from './src/systems/resourceSystem.js';
       return participation?.modes?.[mode] || null;
     };
     const isParticipationEnabled = () => !!getParticipationConfig().enabled;
+
+    ParticipationManager.setConfig(getParticipationConfig);
 
     if (typeof window !== 'undefined') {
       window.CONFIG = CONFIG;
@@ -505,6 +508,7 @@ import { collectResource } from './src/systems/resourceSystem.js';
       getTrail: () => Trail,
       getSignalField: () => SignalField,
       getTrainingUI: () => window.trainingUI,
+      getParticipationManager: () => ParticipationManager,
       CONFIG
     });
 
