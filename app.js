@@ -18,6 +18,8 @@ import { getRule110SpawnLocation, getRule110SpawnMultiplier, getRule110SpawnInfo
 import { createBundleClass } from './src/core/bundle.js';
 import { createResourceClass } from './src/core/resource.js';
 import { createWorld } from './src/core/world.js';
+import { initializeCanvasManager } from './src/ui/canvasManager.js';
+import { initializeInputManager } from './src/ui/inputManager.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -27,16 +29,13 @@ import { createWorld } from './src/core/world.js';
     let dpr = 1;
     let canvasWidth = innerWidth;
     let canvasHeight = innerHeight;
-    
-    // Initialize UI state variables before getAvailableSize uses them
-    let showAgentDashboard = false; // Toggle for agent dashboard overlay
-    
+
     const getAvailableSize = () => {
       const configPanel = document.getElementById("config-panel");
       const panelOpen = configPanel && configPanel.style.display !== "none";
       const panelWidth = panelOpen ? 360 : 0; // Config panel width
       // Canvas now fills full viewport, HUD/Dashboard are drawn on top
-      
+
       return {
         width: innerWidth - panelWidth,
         height: innerHeight,
@@ -45,133 +44,24 @@ import { createWorld } from './src/core/world.js';
       };
     };
     
-    const resize = () => {
-      dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-      const avail = getAvailableSize();
-      canvasWidth = avail.width;
-      canvasHeight = avail.height;
-      
-      canvas.width  = Math.floor(canvasWidth  * dpr);
-      canvas.height = Math.floor(canvasHeight * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      
-      // Update canvas CSS to position it correctly - full viewport
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
-      canvas.style.position = "fixed";
-      canvas.style.top = "0";
-      canvas.style.left = "0";
-      
-      // Only resize Trail if it's been initialized
-      // Trail is defined later in the code, so we check if it exists
-      if (typeof Trail !== 'undefined' && Trail && Trail.resize) {
-        Trail.resize();
-      }
-
-      if (SignalField && SignalField.resize) {
-        SignalField.resize(canvasWidth, canvasHeight, ctx);
-      }
-      
-      // Recreate FertilityField if plant ecology is enabled
-      if (CONFIG.plantEcology.enabled && typeof FertilityGrid !== 'undefined') {
-        FertilityField = new FertilityGrid(canvasWidth, canvasHeight);
-      }
-    };
-    window.addEventListener("resize", resize, { passive: true });
-    
-    // Expose resize function globally so config panel can trigger it
-    window.resizeCanvas = resize;
-    
-    // Note: Initial resize will be called after Trail is defined
-  
-    // Config is now imported from config.js
-  
-    // ---------- Input ----------
-    const held = new Set();
-    let showScentGradient = true; // Toggle for scent gradient visualization
-    let showFertility = false; // Toggle for fertility grid visualization
-    let hudDisplayMode = 'full'; // 'full', 'minimal', or 'hidden'
-    let showHotkeyStrip = true; // Toggle for hotkey strip at bottom
-    
-    window.addEventListener("keydown", (e) => {
-      const k = e.key.toLowerCase();
-      if (["arrowup","w","arrowdown","s","arrowleft","a","arrowright","d"].includes(k)) held.add(k);
-      if (e.code === "Space") { World.paused = !World.paused; e.preventDefault(); }
-      else if (e.code === "KeyR") { World.reset(); }
-      else if (e.code === "KeyK") { 
-        // Toggle hotkey strip
-        showHotkeyStrip = !showHotkeyStrip;
-        const hotkeyStrip = document.getElementById("hotkey-strip");
-        if (hotkeyStrip) {
-          if (showHotkeyStrip) {
-            hotkeyStrip.classList.remove("hidden");
-          } else {
-            hotkeyStrip.classList.add("hidden");
-          }
-        }
-        console.log(`⌨️  Hotkey strip ${showHotkeyStrip ? "VISIBLE" : "HIDDEN"}`);
-        e.preventDefault();
-      }
-      else if (e.code === "KeyC") { 
-        World.bundles.forEach(b => { 
-          b.chi += 5; 
-          b.alive = true;
-          // Reset decay state when reviving
-          b.deathTick = -1;
-          b.decayProgress = 0;
-        }); 
-      }
-      else if (e.code === "KeyS") { World.bundles.forEach(b => { b.extendedSensing = !b.extendedSensing; }); }
-      else if (e.code === "KeyT") { CONFIG.renderTrail = !CONFIG.renderTrail; }
-      else if (e.code === "KeyX") { Trail.clear(); SignalField.clear(); }
-      else if (e.code === "KeyF") { CONFIG.enableDiffusion = !CONFIG.enableDiffusion; }
-      else if (e.code === "KeyA") { CONFIG.autoMove = !CONFIG.autoMove; }
-      else if (e.code === "KeyL") { if (window.trainingUI) window.trainingUI.toggle(); }
-      else if (e.code === "KeyG") { showScentGradient = !showScentGradient; } // Toggle scent gradient visualization
-      else if (e.code === "KeyM") { 
-        CONFIG.mitosis.enabled = !CONFIG.mitosis.enabled; 
-        console.log(`🧫 Mitosis ${CONFIG.mitosis.enabled ? "ENABLED" : "DISABLED"}`);
-      } // Toggle mitosis
-      else if (e.code === "KeyP") {
-        showFertility = !showFertility;
-      } // Toggle plant/fertility visualization
-      else if (e.code === "KeyH") {
-        showAgentDashboard = !showAgentDashboard;
-      } // Toggle agent dashboard overlay
-      else if (e.code === "KeyU") {
-        // Cycle through HUD display modes: full -> minimal -> hidden -> full
-        if (hudDisplayMode === 'full') hudDisplayMode = 'minimal';
-        else if (hudDisplayMode === 'minimal') hudDisplayMode = 'hidden';
-        else hudDisplayMode = 'full';
-        console.log(`📊 HUD mode: ${hudDisplayMode.toUpperCase()}`);
-      } // Toggle HUD display mode
-      // Toggle individual agents visibility
-      else if (e.code === "Digit1") { if (World.bundles[0]) World.bundles[0].visible = !World.bundles[0].visible; }
-      else if (e.code === "Digit2") { if (World.bundles[1]) World.bundles[1].visible = !World.bundles[1].visible; }
-      else if (e.code === "Digit3") { if (World.bundles[2]) World.bundles[2].visible = !World.bundles[2].visible; }
-      else if (e.code === "Digit4") { if (World.bundles[3]) World.bundles[3].visible = !World.bundles[3].visible; }
-      else if (e.code === "KeyV") { World.bundles.forEach(b => b.visible = !b.visible); } // Toggle all
-      else if (e.code === "KeyE") {
-        // Take screenshot
-        e.preventDefault();
-        canvas.toBlob((blob) => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-          const filename = `slime-screenshot-${timestamp}.png`;
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          console.log(`📸 Screenshot saved: ${filename}`);
-        }, 'image/png');
-      }
+    const canvasManager = initializeCanvasManager({
+      canvas,
+      ctx,
+      getAvailableSize
     });
-    window.addEventListener("keyup", (e) => held.delete(e.key.toLowerCase()));
-  
+
+    const updateCanvasState = ({ width, height, dpr: nextDpr }) => {
+      canvasWidth = width;
+      canvasHeight = height;
+      dpr = nextDpr;
+    };
+
+    updateCanvasState(canvasManager.getState());
+    canvasManager.onResize(updateCanvasState);
+
+    // Expose resize function globally so config panel can trigger it
+    window.resizeCanvas = canvasManager.resizeCanvas;
+
     // ---------- Helpers ----------
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const SIGNAL_CHANNELS = {
@@ -555,17 +445,39 @@ import { createWorld } from './src/core/world.js';
     };
     
     // Call resize after Trail is defined (done later in code)
-    // resize(); // Moved to after Trail initialization
-    
+
     // ---------- Fertility Grid (Plant Ecology) ----------
     let FertilityField = null;
     if (CONFIG.plantEcology.enabled) {
       FertilityField = new FertilityGrid(canvasWidth, canvasHeight);
     }
-    
+
+    canvasManager.onResize(({ width, height }) => {
+      if (Trail && Trail.resize) {
+        Trail.resize();
+      }
+
+      if (SignalField && SignalField.resize) {
+        SignalField.resize(width, height, ctx);
+      }
+
+      if (CONFIG.plantEcology.enabled && typeof FertilityGrid !== 'undefined') {
+        FertilityField = new FertilityGrid(width, height);
+      }
+    });
+
     // Now that Trail is defined, call initial resize
-    resize();
+    canvasManager.resizeCanvas();
   
+    const { held, state: inputState } = initializeInputManager({
+      canvas,
+      getWorld: () => World,
+      getTrail: () => Trail,
+      getSignalField: () => SignalField,
+      getTrainingUI: () => window.trainingUI,
+      CONFIG
+    });
+
     // ---------- Entities ----------
     const Bundle = createBundleClass({
       Trail,
@@ -681,7 +593,7 @@ import { createWorld } from './src/core/world.js';
 
     // ---------- HUD ----------
     function drawHUD() {
-      if (!CONFIG.hud.show || hudDisplayMode === 'hidden') return;
+      if (!CONFIG.hud.show || inputState.hudDisplayMode === 'hidden') return;
       ctx.save();
       
       const baselineY = 10;
@@ -761,7 +673,7 @@ import { createWorld } from './src/core/world.js';
       const hudSections = [];
 
       // Minimal mode: compact single line
-      if (hudDisplayMode === 'minimal') {
+      if (inputState.hudDisplayMode === 'minimal') {
         hudSections.push({
           color: "#88ffff",
           lines: [
@@ -818,9 +730,9 @@ import { createWorld } from './src/core/world.js';
             { label: 'Trail', enabled: CONFIG.renderTrail },
             { label: 'Diffusion', enabled: CONFIG.enableDiffusion },
             { label: 'Mitosis', enabled: CONFIG.mitosis.enabled },
-            { label: 'Scent', enabled: showScentGradient },
-            { label: 'Fertility', enabled: showFertility },
-            { label: 'Dashboard', enabled: showAgentDashboard }
+            { label: 'Scent', enabled: inputState.showScentGradient },
+            { label: 'Fertility', enabled: inputState.showFertility },
+            { label: 'Dashboard', enabled: inputState.showAgentDashboard }
           ]
         });
       }
@@ -840,7 +752,7 @@ import { createWorld } from './src/core/world.js';
       // Add space for vertical badges (each badge is ~19px including spacing)
       const badgeVerticalSpace = badgeCount * 19;
       const hudHeight = padding * 2 + totalLines * lineHeight + (hudSections.length - 1) * sectionSpacing + badgeVerticalSpace;
-      const hudWidth = hudDisplayMode === 'minimal' ? 500 : 175;
+      const hudWidth = inputState.hudDisplayMode === 'minimal' ? 500 : 175;
 
       // Draw HUD background
       ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
@@ -907,7 +819,7 @@ import { createWorld } from './src/core/world.js';
         }
       });
 
-      if (showAgentDashboard) {
+      if (inputState.showAgentDashboard) {
         drawAgentDashboardOverlay(baselineY);
       }
 
@@ -1382,7 +1294,7 @@ import { createWorld } from './src/core/world.js';
       ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Draw fertility visualization if enabled (below trails)
-      if (showFertility && CONFIG.plantEcology.enabled && FertilityField) {
+      if (inputState.showFertility && CONFIG.plantEcology.enabled && FertilityField) {
         FertilityField.draw(ctx);
       }
 
