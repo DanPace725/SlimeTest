@@ -550,11 +550,37 @@ import { createTrainingModule } from './src/core/training.js';
       getPerformanceNow: () => performance.now()
     });
     World.reset();
-    
+
     // Expose World globally for console access
     if (typeof window !== 'undefined') {
       window.World = World;
     }
+
+    const { getLearningMode, initializeTrainingUI } = createTrainingModule({
+      world: World,
+      config: CONFIG,
+      trail: Trail,
+      signalField: SignalField,
+      tcScheduler: TcScheduler,
+      ledger: Ledger,
+      episodeManager,
+      learner,
+      TrainingManagerClass: TrainingManager,
+      TrainingUIClass: TrainingUI,
+      normalizeRewardSignal,
+      updateFindTimeEMA,
+      calculateAdaptiveReward,
+      getGlobalTick: () => globalTick,
+      incrementGlobalTick: () => { globalTick += 1; },
+      setWorldPaused: (paused) => { World.paused = paused; },
+      onLearningModeChange: (mode) => {
+        if (mode === 'train') {
+          World.bundles.forEach((b) => (b.useController = true));
+        } else {
+          World.bundles.forEach((b) => (b.useController = false));
+        }
+      }
+    });
   
     // ---------- Lineage Visualization ----------
     function drawLineageLinks(ctx) {
