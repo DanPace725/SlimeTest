@@ -9,10 +9,9 @@ import { computeMetabolicCost } from '../systems/metabolism.js';
 import { resolveControllerAction } from '../systems/controllerAction.js';
 import { computeSteering } from '../systems/steering.js';
 import { computeMovement, evaluateResidualEffects } from '../systems/movement.js';
-import { evaluateMitosisReadiness } from '../systems/mitosis.js';
-import { evaluateDecayTransition } from '../systems/decay.js';
+import { createMitosisSystem } from '../systems/mitosis.js';
+import { createDecaySystem } from '../systems/decay.js';
 import { clamp, mix, smoothstep } from '../utils/math.js';
-const randomRange = (min, max) => TcRandom.random() * (max - min) + min;
 
 const SIGNAL_CHANNELS = {
   resource: 0,
@@ -68,7 +67,10 @@ export function createBundleClass(context) {
   const height = () => getCanvasHeight();
   const worldRef = () => getWorld();
 
-  return class Bundle {
+  const decaySystem = createDecaySystem({ getGlobalTick, config: CONFIG });
+  let mitosisSystem;
+
+  class Bundle {
     constructor(x, y, size, chi, id, useController = false) {
       this.x = x; this.y = y;
       this.vx = 0; this.vy = 0;                // inertial velocity
@@ -455,28 +457,13 @@ export function createBundleClass(context) {
         }
       }
 
-      const decayResult = evaluateDecayTransition({
-        chi: this.chi,
-        chiSpend,
-        alive: this.alive,
-        tick,
-        deathTick: this.deathTick,
-        chiAtDeath: this.chiAtDeath
-      });
-
-      this.chi = decayResult.chi;
-      this.alive = decayResult.alive;
-      this.deathTick = decayResult.deathTick;
-      this.chiAtDeath = decayResult.chiAtDeath;
+      const decayResult = decaySystem.applyLifecycleTransition(this, { chiSpend });
 
       if (decayResult.shouldProvokeBondedExploration) {
         provokeBondedExploration(this.id);
       }
 
-      this._mitosisState = evaluateMitosisReadiness({
-        canBud: () => this.canBud(),
-        canMitosis: () => this.canMitosis()
-      });
+      this._mitosisState = mitosisSystem.evaluateReadiness(this);
 
       // Decay bereavement boost (per tick)
       if (this.bereavementBoostTicks > 0) this.bereavementBoostTicks--;
@@ -883,166 +870,16 @@ export function createBundleClass(context) {
       return (dx*dx + dy*dy) <= (res.r * res.r);
     }
 
-    /**
-     * Check if this agent can perform mitosis
-     */
-    meetsPopulationLimits() {
-      const world = worldRef();
-      const aliveCount = (world?.bundles ?? []).filter(b => b.alive).length;
-      const aliveLimit = Math.min(
-        CONFIG.mitosis.maxAgents,
-        CONFIG.mitosis.maxAliveAgents || CONFIG.mitosis.maxAgents
-      );
-      if (aliveCount >= aliveLimit) return false;
-
-      if (CONFIG.mitosis.respectCarryingCapacity && world) {
-        const maxPopulation = Math.max(
-          aliveLimit,
-          Math.floor(
-            world.resources.length * CONFIG.mitosis.carryingCapacityMultiplier
-          )
-        );
-        if (aliveCount >= maxPopulation) return false;
-      }
-
-      return true;
-    }
-
     canMitosis() {
-      if (!CONFIG.mitosis.enabled) return false;
-      if (!this.alive) return false;
-      if (this.chi < CONFIG.mitosis.threshold) return false;
-
-      const tick = currentTick();
-      const ticksSinceLastMitosis = tick - this.lastMitosisTick;
-      if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
-
-      return this.meetsPopulationLimits();
+      return mitosisSystem.canMitosis(this);
     }
 
     canBud() {
-      if (!CONFIG.mitosis.enabled) return false;
-      if (!this.alive) return false;
-
-      const buddingThreshold = CONFIG.mitosis.buddingThreshold || Infinity;
-      if (this.chi < buddingThreshold) return false;
-
-      if (CONFIG.mitosis.buddingRespectCooldown !== false) {
-        const tick = currentTick();
-        const ticksSinceLastMitosis = tick - this.lastMitosisTick;
-        if (ticksSinceLastMitosis < CONFIG.mitosis.cooldown) return false;
-      }
-
-      return this.meetsPopulationLimits();
+      return mitosisSystem.canBud(this);
     }
 
-    spawnChild(childX, childY, childChi, heading, eventLabel) {
-      const world = worldRef();
-      if (!world) return null;
-
-      const childId = world.nextAgentId++;
-      const child = new Bundle(
-        childX,
-        childY,
-        this.size,
-        childChi,
-        childId,
-        this.useController
-      );
-
-      child.heading = heading;
-      child._lastDirX = Math.cos(heading);
-      child._lastDirY = Math.sin(heading);
-      child.controller = this.controller;
-      child.extendedSensing = this.extendedSensing;
-      child.generation = this.generation + 1;
-      child.parentId = this.id;
-      child.lastMitosisTick = currentTick();
-
-      world.bundles.push(child);
-      world.totalBirths++;
-
-      // Create lineage link
-      if (CONFIG.mitosis.showLineage) {
-        world.addLineageLink(this.id, childId, currentTick());
-      }
-
-      console.log(`🧫 ${eventLabel}! Agent ${this.id} (gen ${this.generation}) → Agent ${child.id} (gen ${child.generation}) | Pop: ${world.bundles.length}`);
-
-      return child;
-    }
-
-    /**
-     * Perform mitosis - create a child agent
-     * Returns the child bundle or null if failed
-     */
-    doMitosis() {
-      if (!this.canMitosis()) return null;
-
-      this.chi -= CONFIG.mitosis.cost;
-
-      const angle = CONFIG.mitosis.inheritHeading
-        ? this.heading + (TcRandom.random() - 0.5) * CONFIG.mitosis.headingNoise
-        : TcRandom.random() * Math.PI * 2;
-
-      const offset = CONFIG.mitosis.spawnOffset;
-      const half = this.size / 2;
-      const canvasW = width();
-      const canvasH = height();
-      const childX = clamp(this.x + Math.cos(angle) * offset, half, canvasW - half);
-      const childY = clamp(this.y + Math.sin(angle) * offset, half, canvasH - half);
-
-      const child = this.spawnChild(
-        childX,
-        childY,
-        CONFIG.mitosis.childStartChi,
-        angle,
-        "Mitosis"
-      );
-
-      this.lastMitosisTick = currentTick();
-
-      return child;
-    }
-
-    doBudding() {
-      if (!this.canBud()) return null;
-
-      const share = clamp(
-        CONFIG.mitosis.buddingShare ?? 0.5,
-        0.05,
-        0.95
-      );
-      const childChi = this.chi * share;
-      this.chi *= (1 - share);
-
-      const jitter = CONFIG.mitosis.buddingOffset ?? 20;
-      const half = this.size / 2;
-      const canvasW = width();
-      const canvasH = height();
-      const childX = clamp(this.x + randomRange(-jitter, jitter), half, canvasW - half);
-      const childY = clamp(this.y + randomRange(-jitter, jitter), half, canvasH - half);
-
-      const angle = CONFIG.mitosis.inheritHeading
-        ? this.heading
-        : TcRandom.random() * Math.PI * 2;
-
-      const child = this.spawnChild(childX, childY, childChi, angle, "Budding");
-
-      this.lastMitosisTick = currentTick();
-
-      return child;
-    }
-
-    /**
-     * Attempt mitosis if conditions are met (called each frame)
-     */
     attemptMitosis() {
-      if (this.canBud()) {
-        this.doBudding();
-      } else if (this.canMitosis()) {
-        this.doMitosis();
-      }
+      return mitosisSystem.attemptReproduction(this);
     }
 
     /**
@@ -1050,44 +887,55 @@ export function createBundleClass(context) {
      * Returns true if fully decayed (ready for removal)
      */
     updateDecay(dt, fertilityGrid) {
-      if (!CONFIG.decay.enabled) return false;
-      if (this.alive) return false;
-
-      const tick = currentTick();
-
-      // Initialize decay tracking if not set (defensive check)
-      if (typeof this.deathTick !== 'number') this.deathTick = -1;
-      if (typeof this.decayProgress !== 'number') this.decayProgress = 0;
-      if (typeof this.chiAtDeath !== 'number') this.chiAtDeath = 0;
-
-      // Initialize death tracking if not set
-      if (this.deathTick < 0) {
-        this.deathTick = tick;
-      }
-
-      // Calculate decay progress (0 to 1)
-      const ticksSinceDeath = tick - this.deathTick;
-      this.decayProgress = Math.min(1, ticksSinceDeath / CONFIG.decay.duration);
-
-      // Release chi into fertility grid gradually
-      if (fertilityGrid && CONFIG.plantEcology.enabled && ticksSinceDeath % 10 === 0) {
-        const chiToRelease = this.chiAtDeath * (0.02); // Release 2% per interval
-        if (chiToRelease > 0 && !isNaN(chiToRelease)) {
-          const fertilityGain = chiToRelease * CONFIG.decay.fertilityBoost;
-          if (fertilityGain > 0 && !isNaN(fertilityGain)) {
-            fertilityGrid.addFertilityRadial(
-              this.x,
-              this.y,
-              CONFIG.decay.releaseRadius,
-              fertilityGain
-            );
-            this.chiAtDeath = Math.max(0, this.chiAtDeath - chiToRelease);
-          }
-        }
-      }
-
-      // Return true if fully decayed and ready for removal
-      return CONFIG.decay.removeAfterDecay && this.decayProgress >= 1.0;
+      return decaySystem.updateCorpseDecay(this, dt, fertilityGrid);
     }
-  };
+  }
+
+  mitosisSystem = createMitosisSystem({
+    getGlobalTick,
+    getCanvasWidth,
+    getCanvasHeight,
+    getWorld,
+    random: TcRandom,
+    config: CONFIG,
+    createChildBundle: ({ parent, x, y, chi, heading, eventLabel }) => {
+      const world = worldRef();
+      if (!world) return null;
+
+      const childId = world.nextAgentId++;
+      const parentGeneration = parent.generation ?? 0;
+      const child = new Bundle(
+        x,
+        y,
+        parent.size,
+        chi,
+        childId,
+        parent.useController
+      );
+
+      child.heading = heading;
+      child._lastDirX = Math.cos(heading);
+      child._lastDirY = Math.sin(heading);
+      child.controller = parent.controller;
+      child.extendedSensing = parent.extendedSensing;
+      child.generation = parentGeneration + 1;
+      child.parentId = parent.id;
+      child.lastMitosisTick = getGlobalTick();
+
+      world.bundles.push(child);
+      world.totalBirths++;
+
+      if (CONFIG.mitosis.showLineage) {
+        world.addLineageLink(parent.id, childId, getGlobalTick());
+      }
+
+      console.log(
+        `🧫 ${eventLabel}! Agent ${parent.id} (gen ${parentGeneration}) → Agent ${child.id} (gen ${child.generation}) | Pop: ${world.bundles.length}`
+      );
+
+      return child;
+    }
+  });
+
+  return Bundle;
 }
