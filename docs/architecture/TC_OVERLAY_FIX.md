@@ -88,7 +88,7 @@ showOverlay: false,    // Overlay also off by default (explicit intent)
 - Increased `overlayOpacity` from `0.15` to `0.3`
 - Updated comments to reflect better visibility
 
-### 3. `docs/TC_RESOURCE_QUICKSTART.md`
+### 3. `../how-to/TC_RESOURCE_QUICKSTART.md`
 - Added "Common Issue" section at top with quick fix
 - Updated all examples to include opacity setting
 - Updated configuration table to show new default (0.3)

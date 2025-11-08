@@ -236,7 +236,7 @@ You're not there yet, but now you have the tools to get there! 🚀
 ## Files Created
 
 1. **`policyAnalyzer.js`** - The analyzer script
-2. **`POLICY_ANALYZER_GUIDE.md`** - Comprehensive usage guide
+2. **`../how-to/POLICY_ANALYZER_GUIDE.md`** - Comprehensive usage guide
 3. **`ANALYZER_SUMMARY.md`** - This file (quick reference)
 
 Run the analyzer after every training session to understand what's happening! 📊

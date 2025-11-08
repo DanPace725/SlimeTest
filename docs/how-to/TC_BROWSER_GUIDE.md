@@ -241,7 +241,7 @@ The simulation is now **provably universal** - it can compute anything computabl
 ## References
 
 - [Casual Universality Flex Profile](../profiles/universality/casual_universality_flex.json)
-- [TC Performance Notes](./notes/tc_performance.md)
-- [TC Channel Design](./notes/tc_channel_design.md)
+- [TC Performance Notes](../../tc/docs/tc_performance.md)
+- [TC Channel Design](../../tc/docs/tc_channel_design.md)
 - [Rule 110 Wikipedia](https://en.wikipedia.org/wiki/Rule_110)
 

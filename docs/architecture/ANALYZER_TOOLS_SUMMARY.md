@@ -24,7 +24,7 @@ node policyAnalyzer.js gen6.json gen20.json
 - Learning curve ASCII plot
 - Convergence warnings
 
-**Documentation:** `POLICY_ANALYZER_GUIDE.md`
+**Documentation:** `../how-to/POLICY_ANALYZER_GUIDE.md`
 
 ---
 
@@ -51,7 +51,7 @@ node policyBatchAnalyzer.js gen*.json --format json
 - Export to CSV/JSON/HTML
 - Automatic insights generation
 
-**Documentation:** `BATCH_ANALYZER_GUIDE.md`
+**Documentation:** `../how-to/BATCH_ANALYZER_GUIDE.md`
 
 ---
 
@@ -189,19 +189,19 @@ CONFIG.learning.mutationStdDev = 0.25  // was 0.1
 
 ## 📚 Documentation Files
 
-1. **`POLICY_ANALYZER_GUIDE.md`** - Single policy analysis (464 lines)
+1. **`../how-to/POLICY_ANALYZER_GUIDE.md`** - Single policy analysis (464 lines)
    - How to interpret every metric
    - Color coding guide
    - Troubleshooting
    - Advanced weight reading
 
-2. **`BATCH_ANALYZER_GUIDE.md`** - Batch comparison (XXX lines)
+2. **`../how-to/BATCH_ANALYZER_GUIDE.md`** - Batch comparison (XXX lines)
    - Multi-policy workflows
    - Export format details
    - Excel integration
    - Python/R examples
 
-3. **`POLICY_TRAINING_TIPS.md`** - Training advice (408 lines)
+3. **`../how-to/POLICY_TRAINING_TIPS.md`** - Training advice (408 lines)
    - Why policies ignore resources
    - Reward tuning guide
    - Timeline expectations
@@ -212,7 +212,7 @@ CONFIG.learning.mutationStdDev = 0.25  // was 0.1
    - Diagnosis
    - Action items
 
-5. **`VISUAL_INDICATORS.md`** - UI indicators
+5. **`../how-to/VISUAL_INDICATORS.md`** - UI indicators
    - What yellow borders mean
    - HUD status display
    - Action value debugging

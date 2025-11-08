@@ -403,5 +403,5 @@ Once you have TC-Resource working, try:
 4. **Custom initializers** - design specific computational environments
 5. **Glider tracking** - make resources follow moving structures
 
-See `docs/TC_RESOURCE_INTEGRATION.md` for advanced implementation details!
+See `../architecture/TC_RESOURCE_INTEGRATION.md` for advanced implementation details!
 
