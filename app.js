@@ -40,6 +40,7 @@ import ParticipationManager from './src/systems/participation.js';
 import { startSimulation } from './src/core/simulationLoop.js';
 import { createTrainingModule } from './src/core/training.js';
 import { collectResource } from './src/systems/resourceSystem.js';
+import { MetricsTracker } from './src/core/metricsTracker.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -408,7 +409,14 @@ import { collectResource } from './src/systems/resourceSystem.js';
         const L = Links[i];
         const a = getBundleById(L.aId);
         const b = getBundleById(L.bId);
-        if (!a || !b || !a.alive || !b.alive) { Links.splice(i, 1); continue; }
+        if (!a || !b || !a.alive || !b.alive) {
+          // Link broken due to death - track lifetime if collecting baseline
+          if (isCollectingBaseline && baselineMetricsTracker && L.age > 0) {
+            baselineMetricsTracker.onLinkBreak(L.age);
+          }
+          Links.splice(i, 1);
+          continue;
+        }
         // χ maintenance proportional to strength
         const leak = CONFIG.link.maintPerSec * L.strength * dt;
         a.chi = Math.max(0, a.chi - leak);
@@ -441,7 +449,14 @@ import { collectResource } from './src/systems/resourceSystem.js';
           b.emitSignal('bond', bondSignal, { cap: 1 });
         }
         // clamp and breakage
-        if (L.strength < CONFIG.link.minStrength) { Links.splice(i, 1); continue; }
+        if (L.strength < CONFIG.link.minStrength) {
+          // Link broken due to weakness - track lifetime if collecting baseline
+          if (isCollectingBaseline && baselineMetricsTracker && L.age > 0) {
+            baselineMetricsTracker.onLinkBreak(L.age);
+          }
+          Links.splice(i, 1);
+          continue;
+        }
         L.strength = Math.min(2.0, Math.max(0, L.strength));
         L.age += dt;
       }
@@ -466,6 +481,10 @@ import { collectResource } from './src/systems/resourceSystem.js';
     // ---------- Learning System ----------
     const learner = new CEMLearner(23, 3); // 23 obs dims (was 15, now includes scent+density), 3 action dims
     const episodeManager = new EpisodeManager();
+    
+    // ---------- Baseline Metrics Tracker ----------
+    let baselineMetricsTracker = null;
+    let isCollectingBaseline = false;
   
     // ---------- Trail field (downsampled) ----------
     const Trail = {
@@ -788,6 +807,52 @@ import { collectResource } from './src/systems/resourceSystem.js';
       window.FertilityGrid = FertilityGrid; // Expose class so config can recreate field
     }
 
+    // ---------- Baseline Collection Functions ----------
+    function startBaselineCollection() {
+      if (isCollectingBaseline) {
+        console.warn('Baseline collection already in progress');
+        return false;
+      }
+      
+      try {
+        baselineMetricsTracker = new MetricsTracker();
+        baselineMetricsTracker.init(World, Trail, globalTick);
+        isCollectingBaseline = true;
+        
+        console.log('📊 Started baseline metrics collection');
+        console.log('   Tracker initialized:', !!baselineMetricsTracker);
+        console.log('   Step method exists:', typeof baselineMetricsTracker.step);
+        return true;
+      } catch (err) {
+        console.error('Failed to start baseline collection:', err);
+        baselineMetricsTracker = null;
+        isCollectingBaseline = false;
+        return false;
+      }
+    }
+    
+    function stopBaselineCollection() {
+      if (!isCollectingBaseline) {
+        console.warn('No baseline collection in progress');
+        return false;
+      }
+      
+      isCollectingBaseline = false;
+      console.log(`📊 Stopped baseline metrics collection (${baselineMetricsTracker?.hist?.length || 0} snapshots)`);
+      return true;
+    }
+    
+    function getBaselineMetrics() {
+      if (!baselineMetricsTracker) {
+        return null;
+      }
+      return baselineMetricsTracker.getHistory();
+    }
+    
+    function isBaselineCollecting() {
+      return isCollectingBaseline;
+    }
+
     // ========================================================================
     // ⚠️  World is NOW initialized - trainingModule can reference it safely ⚠️
     // ========================================================================
@@ -817,7 +882,12 @@ import { collectResource } from './src/systems/resourceSystem.js';
         } else {
           World.bundles.forEach((b) => (b.useController = false));
         }
-      }
+      },
+      // Baseline metrics collection
+      startBaselineCollection,
+      stopBaselineCollection,
+      getBaselineMetrics,
+      isBaselineCollecting
     });
   
     // ---------- Lineage Visualization ----------
@@ -1329,9 +1399,29 @@ import { collectResource } from './src/systems/resourceSystem.js';
       }
 
       let totalEnergyDelta = 0;
+      let totalChiSpent = 0;
+      
       World.bundles.forEach((bundle) => {
+        const chiBeforeUpdate = bundle.chi;
+        const posBeforeUpdate = { x: bundle.x, y: bundle.y };
+        
         const nearestResource = World.getNearestResource(bundle);
         bundle.update(dt, nearestResource);
+        
+        // Track baseline metrics if collecting
+        if (isCollectingBaseline && baselineMetricsTracker) {
+          const dx = bundle.x - posBeforeUpdate.x;
+          const dy = bundle.y - posBeforeUpdate.y;
+          const speed = Math.hypot(dx, dy) / dt;
+          baselineMetricsTracker.onMove(dx, dy, speed);
+          
+          const chiSpent = Math.max(0, chiBeforeUpdate - bundle.chi);
+          if (chiSpent > 0) {
+            baselineMetricsTracker.onChiSpend(chiSpent, 'play-mode');
+            totalChiSpent += chiSpent;
+          }
+        }
+        
         const applied = applyParticipationEnergy(bundle);
         if (applied !== 0) {
           totalEnergyDelta += applied;
@@ -1451,6 +1541,23 @@ import { collectResource } from './src/systems/resourceSystem.js';
               if (CONFIG.plantEcology.enabled && FertilityField) {
                 FertilityField.depleteAt(resource.x, resource.y, globalTick);
               }
+              
+              // Track baseline metrics if collecting
+              if (isCollectingBaseline && baselineMetricsTracker) {
+                const rewardAmount = CONFIG.rewardChi || 0;
+                baselineMetricsTracker.onChiReward(rewardAmount, 'resource', globalTick);
+                
+                // Track guidance efficacy (was agent near strong trail?)
+                const sample = Trail.sample(bundle.x, bundle.y);
+                const nearTrail = sample.value > 0.15; // Strong trail threshold
+                baselineMetricsTracker.onResourceFound(nearTrail);
+                
+                // Track chi from reuse (provenance credits)
+                const provenanceCredit = Ledger.getCredits(bundle.id);
+                if (provenanceCredit > 0) {
+                  baselineMetricsTracker.onChiFromReuse(provenanceCredit);
+                }
+              }
             },
           });
 
@@ -1550,6 +1657,23 @@ import { collectResource } from './src/systems/resourceSystem.js';
         TcScheduler.runPhase('commit', tickContext);
       }
       globalTick += 1;
+      
+      // Update baseline metrics if collecting
+      if (isCollectingBaseline && baselineMetricsTracker) {
+        try {
+          if (typeof baselineMetricsTracker.step === 'function') {
+            // Pass Links array for active link age tracking
+            baselineMetricsTracker.step(World, Trail, globalTick, Links);
+          } else {
+            console.error('baselineMetricsTracker.step is not a function, stopping collection');
+            isCollectingBaseline = false;
+          }
+        } catch (err) {
+          console.error('Error updating baseline metrics:', err);
+          isCollectingBaseline = false;
+        }
+      }
+      
       if (globalTick - lastSignalStatTick >= 30) {
         lastSignalStatTick = globalTick;
         const fieldStats = typeof SignalField.getStats === 'function' ? SignalField.getStats() : null;

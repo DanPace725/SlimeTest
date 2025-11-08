@@ -13,7 +13,7 @@
 export class MetricsTracker {
   constructor(config = {}) {
     this.windowTicks = config.windowTicks || 1200;  // ~20s at 60fps
-    this.step = config.step || 30;                  // compute every 30 ticks
+    this.stepInterval = config.step || 30;          // compute every 30 ticks
     this.eps = config.eps || 0.02;                  // trail threshold
     this.hist = [];                                 // snapshot history
     
@@ -32,7 +32,13 @@ export class MetricsTracker {
       pathLenAccum: 0,
       straightLenAccum: 0,
       episodeStart: null,
-      firstFindTick: null
+      firstFindTick: null,
+      
+      // Collective Intelligence metrics
+      chiFromReuse: 0,              // Chi gained from trail reuse (provenance)
+      linkLifetimes: [],            // Track individual link lifetimes when they break
+      findsNearTrail: 0,            // Resources found while near strong trails
+      totalFinds: 0                 // Total resources found (for guidance efficacy ratio)
     };
   }
   
@@ -64,6 +70,12 @@ export class MetricsTracker {
     this.state.findsInWindow = 0;
     this.state.pathLenAccum = 0;
     this.state.straightLenAccum = 0;
+    
+    // Reset collective intelligence counters
+    this.state.chiFromReuse = 0;
+    this.state.linkLifetimes = [];
+    this.state.findsNearTrail = 0;
+    this.state.totalFinds = 0;
   }
   
   /**
@@ -131,12 +143,51 @@ export class MetricsTracker {
   }
   
   /**
+   * Track chi gained from trail reuse (provenance credit)
+   * @param {number} amount - Amount of chi gained from reuse
+   */
+  onChiFromReuse(amount) {
+    this.state.chiFromReuse += Math.max(0, amount);
+  }
+  
+  /**
+   * Track link lifetime when a link breaks
+   * @param {number} lifetime - How long the link lasted (in ticks or seconds)
+   */
+  onLinkBreak(lifetime) {
+    if (lifetime > 0) {
+      this.state.linkLifetimes.push(lifetime);
+    }
+  }
+  
+  /**
+   * Track resource collection with trail context
+   * @param {boolean} nearTrail - Was agent near a strong trail when finding resource?
+   */
+  onResourceFound(nearTrail = false) {
+    this.state.totalFinds++;
+    if (nearTrail) {
+      this.state.findsNearTrail++;
+    }
+  }
+  
+  /**
+   * Track active links for snapshot (alternative to waiting for breaks)
+   * @param {Array} links - Array of active link objects with .age property
+   */
+  onLinksSnapshot(links) {
+    // Clear and rebuild from current active links
+    this.state.linkLifetimes = links.map(L => L.age);
+  }
+  
+  /**
    * Main step function - compute metrics snapshot periodically
    * @param {object} world - World object with bundles
    * @param {object} trail - Trail object
    * @param {number} globalTick - Current simulation tick
+   * @param {Array} links - Optional: active links array for snapshot
    */
-  step(world, trail, globalTick) {
+  step(world, trail, globalTick, links = null) {
     // Track new coverage (trail > eps)
     if (trail && trail.buf && this.state.seenCells) {
       let newly = 0;
@@ -156,7 +207,7 @@ export class MetricsTracker {
     }
     
     // Only compute snapshot every N ticks
-    if ((globalTick % this.step) !== 0) {
+    if ((globalTick % this.stepInterval) !== 0) {
       return;
     }
     
@@ -209,6 +260,25 @@ export class MetricsTracker {
       ? (this.state.firstFindTick - this.state.episodeStart)
       : null;
     
+    // === Collective Intelligence ===
+    // Shared trail use: chi from reuse / total chi reward
+    const sharedTrailUse = this.state.chiReward > 0 
+      ? (this.state.chiFromReuse / this.state.chiReward)
+      : 0;
+    
+    // Link persistence: snapshot of active link ages (if provided) or broken link lifetimes
+    if (links && links.length > 0) {
+      this.onLinksSnapshot(links);
+    }
+    const linkPersistence = this.state.linkLifetimes.length > 0
+      ? this._avg(this.state.linkLifetimes)
+      : 0;
+    
+    // Guidance efficacy: P(find | near trail)
+    const guidanceEfficacy = this.state.totalFinds > 0
+      ? (this.state.findsNearTrail / this.state.totalFinds)
+      : 0;
+    
     // Create snapshot
     const snapshot = {
       tick: globalTick,
@@ -229,13 +299,18 @@ export class MetricsTracker {
       // Foraging
       find_rate: findRate,
       path_ineff: pathIneff,
-      time_to_first_find: timeToFirstFind
+      time_to_first_find: timeToFirstFind,
+      
+      // Collective Intelligence
+      shared_trail_use: sharedTrailUse,
+      link_persistence: linkPersistence,
+      guidance_efficacy: guidanceEfficacy
     };
     
     this.hist.push(snapshot);
     
     // Keep history within window
-    const maxSnapshots = Math.ceil(this.windowTicks / this.step);
+    const maxSnapshots = Math.ceil(this.windowTicks / this.stepInterval);
     if (this.hist.length > maxSnapshots) {
       this.hist.shift();
     }
@@ -252,6 +327,12 @@ export class MetricsTracker {
     this.state.findsInWindow = 0;
     this.state.pathLenAccum = 0;
     this.state.straightLenAccum = 0;
+    
+    // Reset collective intelligence counters
+    this.state.chiFromReuse = 0;
+    this.state.linkLifetimes = []; // Will be repopulated on next snapshot
+    this.state.findsNearTrail = 0;
+    this.state.totalFinds = 0;
   }
   
   /**
@@ -273,7 +354,7 @@ export class MetricsTracker {
         exportedAt: new Date().toISOString(),
         snapshotCount: this.hist.length,
         windowTicks: this.windowTicks,
-        stepInterval: this.step,
+        stepInterval: this.stepInterval,
         ...metadata
       },
       snapshots: this.getHistory()

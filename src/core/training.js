@@ -1,6 +1,7 @@
 import { performSimulationStep } from './simulationLoop.js';
 import { collectResource } from '../systems/resourceSystem.js';
 import { MetricsTracker } from './metricsTracker.js';
+import { ConfigOptimizer, ConfigTrainingManager, TUNABLE_PARAMS } from './configOptimizer.js';
 
 export function createTrainingModule({
   world,
@@ -20,6 +21,10 @@ export function createTrainingModule({
   incrementGlobalTick,
   setWorldPaused,
   onLearningModeChange,
+  startBaselineCollection = null,
+  stopBaselineCollection = null,
+  getBaselineMetrics = null,
+  isBaselineCollecting = null,
   windowHandle = typeof window !== 'undefined' ? window : null,
   documentHandle = typeof document !== 'undefined' ? document : null
 }) {
@@ -29,6 +34,8 @@ export function createTrainingModule({
 
   let learningMode = 'play';
   let trainingManager = null;
+  let configTrainingManager = null;
+  let configOptimizer = null;
   let stopTrainingFlag = false;
   let loadedPolicyInfo = null;
   let lastMetricsHistory = null;
@@ -52,10 +59,36 @@ export function createTrainingModule({
       trainingManager = new TrainingManagerClass(
         learner,
         () => world.reset(),
-        (policy) => runEpisode(policy)
+        async (policy) => {
+          const { totalReward } = await runEpisode(policy);
+          return totalReward;
+        }
       );
     }
     return trainingManager;
+  }
+  
+  function ensureConfigTrainingManager(objective = 'balanced') {
+    if (!configOptimizer) {
+      configOptimizer = new ConfigOptimizer(TUNABLE_PARAMS, objective);
+    }
+    if (!configTrainingManager) {
+      configTrainingManager = new ConfigTrainingManager(
+        configOptimizer,
+        () => world.reset(),
+        async () => {
+          // For config optimization, run episode without policy (use heuristic)
+          world.bundles.forEach((bundle) => {
+            bundle.useController = false;
+          });
+          
+          // Run the episode and track metrics
+          const { totalReward, metricsHistory } = await runHeuristicEpisode();
+          return { totalReward, metricsHistory };
+        }
+      );
+    }
+    return configTrainingManager;
   }
 
   function getTcContextFactory(mode) {
@@ -71,6 +104,210 @@ export function createTrainingModule({
         scheduler: mode === 'train' ? 'episode' : 'play',
         world
       });
+    };
+  }
+
+  async function runHeuristicEpisode() {
+    world.reset();
+    episodeManager.startEpisode();
+
+    world.bundles.forEach((bundle) => {
+      bundle.useController = false; // Use heuristic AI
+      bundle.rewardTracker.reset();
+    });
+
+    ledger.credits = {};
+
+    let totalReward = 0;
+    let episodeTicks = 0;
+    const maxTicks = config.learning.episodeLength;
+    
+    // Initialize metrics tracker for this episode
+    const metricsTracker = new MetricsTracker();
+    const startTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+    metricsTracker.init(world, trail, startTick);
+    
+    // Track chi spent across phases
+    let episodeTotalChiSpent = 0;
+
+    const capturePhase = (phaseState) => {
+      if (typeof trail.captureSnapshot === 'function') {
+        trail.captureSnapshot();
+      }
+      if (config.signal.enabled && typeof signalField.captureSnapshot === 'function') {
+        signalField.captureSnapshot();
+      }
+      if (phaseState.tickContext) {
+        tcScheduler.runPhase('capture', phaseState.tickContext);
+      }
+    };
+
+    const updateAgentsPhase = (phaseState) => {
+      episodeTotalChiSpent = 0;
+      for (let i = 0; i < world.bundles.length; i++) {
+        const bundle = world.bundles[i];
+        if (!bundle.alive) continue;
+
+        const chiStart = bundle.chi;
+        
+        // Track movement for metrics
+        const oldX = bundle.x;
+        const oldY = bundle.y;
+        
+        // Heuristic update (bundle.update handles everything when useController=false)
+        const nearestResource = world.getNearestResource(bundle);
+        bundle.update(phaseState.dt, nearestResource);
+
+        const chiEnd = bundle.chi;
+        const chiSpent = Math.max(0, chiStart - chiEnd);
+        episodeTotalChiSpent += chiSpent;
+        
+        // Track chi spent
+        metricsTracker.onChiSpend(chiSpent, 'heuristic');
+        
+        // Track movement
+        const dx = bundle.x - oldX;
+        const dy = bundle.y - oldY;
+        const moved = Math.abs(dx) + Math.abs(dy) > 0.1;
+        metricsTracker.onMove(dx, dy, moved);
+      }
+
+      if (phaseState.tickContext) {
+        tcScheduler.runPhase('control', phaseState.tickContext);
+      }
+    };
+
+    const resourcePhase = (phaseState) => {
+      for (const bundle of world.bundles) {
+        if (!bundle.alive) continue;
+
+        let collectedResourceObj = null;
+        let didCollect = false;
+
+        for (const resource of world.resources) {
+          if (!resource.active) continue;
+
+          const result = collectResource(resource, bundle, {
+            config,
+            world,
+            ledger,
+            normalizeRewardSignal,
+            updateFindTimeEMA,
+            calculateAdaptiveReward,
+            getGlobalTick,
+            logger: console,
+          });
+
+          if (result.collected) {
+            didCollect = true;
+            collectedResourceObj = resource;
+            
+            // Track chi reward from resource collection
+            const rewardAmount = config.rewardChi || 0;
+            const currentTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+            metricsTracker.onChiReward(rewardAmount, 'resource', currentTick);
+            
+            // Track guidance efficacy (was agent near strong trail?)
+            const sample = trail.sample(resource.x, resource.y);
+            const nearTrail = sample.value > 0.15;
+            metricsTracker.onResourceFound(nearTrail);
+            
+            break;
+          }
+        }
+
+        const provenanceCredit = collectedResourceObj ? ledger.getCredits(collectedResourceObj.id) : 0;
+        
+        // Track chi from reuse (collective intelligence metric)
+        if (provenanceCredit > 0) {
+          metricsTracker.onChiFromReuse(provenanceCredit);
+        }
+        
+        const stepReward = bundle.rewardTracker.computeStepReward(
+          didCollect,
+          episodeTotalChiSpent,
+          provenanceCredit,
+          world.resources
+        );
+        totalReward += stepReward;
+      }
+
+      if (phaseState.tickContext) {
+        tcScheduler.runPhase('compute', phaseState.tickContext);
+      }
+    };
+
+    const environmentPhase = (phaseState) => {
+      trail.step(phaseState.dt);
+      if (config.signal.enabled) {
+        signalField.step(phaseState.dt);
+      }
+      if (phaseState.tickContext) {
+        tcScheduler.runPhase('diffuse', phaseState.tickContext);
+      }
+    };
+
+    const finalizePhase = (phaseState) => {
+      if (typeof trail.applySnapshot === 'function') {
+        trail.applySnapshot();
+      }
+      if (config.signal.enabled && typeof signalField.applySnapshot === 'function') {
+        signalField.applySnapshot();
+      }
+      if (phaseState.tickContext) {
+        tcScheduler.runPhase('commit', phaseState.tickContext);
+      }
+      
+      // Update metrics tracker each tick
+      const currentTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+      metricsTracker.step(world, trail, currentTick);
+    };
+
+    while (episodeTicks < maxTicks && world.bundles.some((b) => b.alive)) {
+      const dt = 1 / 60;
+      const beginTick = getTcContextFactory('train');
+      
+      performSimulationStep({
+        dt,
+        mode: 'train',
+        beginTick,
+        phases: [capturePhase, updateAgentsPhase, resourcePhase, environmentPhase, finalizePhase],
+        endTick: (ctx) => {
+          if (ctx) {
+            tcScheduler.endTick(ctx);
+          }
+        },
+        onError: (err) => {
+          console.error('Error in heuristic training episode:', err);
+          throw err;
+        }
+      });
+
+      episodeTicks++;
+      if (typeof incrementGlobalTick === 'function') {
+        incrementGlobalTick();
+      }
+      
+      // Yield to browser every 50 ticks for rendering
+      if (episodeTicks % 50 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    for (const bundle of world.bundles) {
+      if (!bundle.alive && episodeTicks < maxTicks) {
+        totalReward += config.learning.rewards.death;
+      }
+    }
+
+    episodeManager.endEpisode(world.bundles[0]?.rewardTracker);
+    
+    // Store metrics history from this episode
+    lastMetricsHistory = metricsTracker.getHistory();
+    
+    return {
+      totalReward,
+      metricsHistory: lastMetricsHistory
     };
   }
 
@@ -156,11 +393,23 @@ export function createTrainingModule({
             const rewardAmount = config.rewardChi || 0;
             const currentTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
             metricsTracker.onChiReward(rewardAmount, 'resource', currentTick);
+            
+            // Track guidance efficacy (was agent near strong trail?)
+            const sample = trail.sample(bundle.x, bundle.y);
+            const nearTrail = sample.value > 0.15;
+            metricsTracker.onResourceFound(nearTrail);
+            
             break;
           }
         }
 
         const provenanceCredit = ledger.getCredits(bundle.id);
+        
+        // Track chi from reuse (collective intelligence metric)
+        if (provenanceCredit > 0) {
+          metricsTracker.onChiFromReuse(provenanceCredit);
+        }
+        
         const stepReward = bundle.rewardTracker.computeStepReward(
           collectedResource,
           totalChiSpent,
@@ -231,7 +480,10 @@ export function createTrainingModule({
     // Store metrics history from this episode
     lastMetricsHistory = metricsTracker.getHistory();
     
-    return totalReward;
+    return {
+      totalReward,
+      metricsHistory: lastMetricsHistory
+    };
   }
 
   function initializeTrainingUI() {
@@ -488,6 +740,312 @@ export function createTrainingModule({
         alert('Failed to export metrics. Check console for details.');
       }
     });
+    
+    // Baseline collection handlers
+    ui.on('onStartBaseline', () => {
+      if (!startBaselineCollection) {
+        alert('Baseline collection not available');
+        return;
+      }
+      
+      const success = startBaselineCollection();
+      if (success && ui.updateBaselineStatus) {
+        ui.updateBaselineStatus(true, 0);
+        
+        // Update status periodically while collecting
+        const updateInterval = setInterval(() => {
+          if (!isBaselineCollecting || !isBaselineCollecting()) {
+            clearInterval(updateInterval);
+            return;
+          }
+          
+          const metrics = getBaselineMetrics ? getBaselineMetrics() : null;
+          const count = metrics ? metrics.length : 0;
+          ui.updateBaselineStatus(true, count);
+        }, 1000);
+      }
+    });
+    
+    ui.on('onStopBaseline', () => {
+      if (!stopBaselineCollection) {
+        alert('Baseline collection not available');
+        return;
+      }
+      
+      const success = stopBaselineCollection();
+      if (success && ui.updateBaselineStatus) {
+        const metrics = getBaselineMetrics ? getBaselineMetrics() : null;
+        const count = metrics ? metrics.length : 0;
+        ui.updateBaselineStatus(false, count);
+      }
+    });
+    
+    ui.on('onExportBaseline', () => {
+      if (!getBaselineMetrics) {
+        alert('Baseline collection not available');
+        return;
+      }
+      
+      const baselineData = getBaselineMetrics();
+      
+      if (!baselineData || baselineData.length === 0) {
+        alert('No baseline data available. Start baseline collection first!');
+        console.warn('Export baseline: No data available');
+        return;
+      }
+      
+      try {
+        const exportData = {
+          metadata: {
+            exportedAt: new Date().toISOString(),
+            type: 'baseline',
+            snapshotCount: baselineData.length,
+            config: {
+              agentCount: world?.bundles?.length || 0,
+              rewardChi: config?.rewardChi || 0,
+              autoMove: config?.autoMove || false,
+              moveSpeedPxPerSec: config?.moveSpeedPxPerSec || 0
+            }
+          },
+          snapshots: baselineData
+        };
+        
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = documentHandle.createElement('a');
+        a.href = url;
+        
+        // Create filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.download = `baseline-metrics-${timestamp}.json`;
+        
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        console.log(`📊 Baseline metrics exported: ${baselineData.length} snapshots`);
+        console.log(`   File: baseline-metrics-${timestamp}.json`);
+      } catch (err) {
+        console.error('Failed to export baseline metrics:', err);
+        alert('Failed to export baseline metrics. Check console for details.');
+      }
+    });
+    
+    // Config optimization handlers
+    ui.on('onStartConfigOpt', async (objective, generations) => {
+      const manager = ensureConfigTrainingManager(objective);
+      if (!manager) {
+        alert('Config optimizer not available');
+        return;
+      }
+      
+      // Pause the world during training to avoid confusion
+      const wasRunning = !world.paused;
+      if (typeof setWorldPaused === 'function') {
+        setWorldPaused(true);
+      }
+      
+      console.log(`🚀 Starting config optimization: ${generations} generations, objective: ${objective}`);
+      ui.updateConfigOptStats({
+        status: 'Running...',
+        generation: configOptimizer.generation,
+        bestFitness: configOptimizer.bestFitness,
+        convergence: configOptimizer._computeConvergence(),
+        hasBestConfig: configOptimizer.bestConfig !== null
+      });
+      
+      try {
+        await manager.runTraining(generations, (current, total, status) => {
+          // Update UI with progress
+          ui.updateConfigOptStats({
+            status,
+            generation: configOptimizer.generation,
+            bestFitness: configOptimizer.bestFitness,
+            convergence: configOptimizer._computeConvergence(),
+            hasBestConfig: configOptimizer.bestConfig !== null
+          });
+          
+          // Log progress
+          console.log(`📊 ${status} | Gen: ${configOptimizer.generation} | Fitness: ${configOptimizer.bestFitness.toFixed(3)}`);
+        });
+        
+        console.log('✅ Config optimization complete!');
+        console.log('📈 Best fitness:', configOptimizer.bestFitness);
+        console.log('⚙️ Best config:', configOptimizer.bestConfig);
+        
+        ui.updateConfigOptStats({
+          status: 'Complete',
+          generation: configOptimizer.generation,
+          bestFitness: configOptimizer.bestFitness,
+          convergence: configOptimizer._computeConvergence(),
+          hasBestConfig: true
+        });
+        
+        // Restore world state
+        if (wasRunning && typeof setWorldPaused === 'function') {
+          setWorldPaused(false);
+        }
+        
+        alert(`✅ Optimization Complete!\n\nGeneration: ${configOptimizer.generation}\nBest Fitness: ${configOptimizer.bestFitness.toFixed(3)}\n\nClick "🎮 Test" to see the optimized config in action!`);
+        
+      } catch (error) {
+        console.error('❌ Config optimization error:', error);
+        alert(`Config optimization failed: ${error.message}`);
+        ui.resetConfigOptUI();
+        
+        // Restore world state on error
+        if (wasRunning && typeof setWorldPaused === 'function') {
+          setWorldPaused(false);
+        }
+      }
+    });
+    
+    ui.on('onStopConfigOpt', () => {
+      if (configTrainingManager) {
+        configTrainingManager.stop();
+        console.log('Config optimization stopped');
+        ui.resetConfigOptUI();
+      }
+    });
+    
+    ui.on('onSaveConfig', () => {
+      if (!configOptimizer || !configOptimizer.bestConfig) {
+        alert('No optimized config to save');
+        return;
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const genLabel = `gen${configOptimizer.generation}`;
+      
+      // Export 1: Full optimizer state (for resuming training)
+      const fullExportData = {
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          generation: configOptimizer.generation,
+          bestFitness: configOptimizer.bestFitness,
+          objective: configOptimizer.objective,
+          convergence: configOptimizer._computeConvergence()
+        },
+        optimizerState: configOptimizer.save(),
+        bestConfig: configOptimizer.getBestConfig()
+      };
+      
+      const fullJson = JSON.stringify(fullExportData, null, 2);
+      const fullBlob = new Blob([fullJson], { type: 'application/json' });
+      const fullUrl = URL.createObjectURL(fullBlob);
+      const fullLink = documentHandle.createElement('a');
+      fullLink.href = fullUrl;
+      fullLink.download = `optimized-config-${genLabel}-${timestamp}.json`;
+      fullLink.click();
+      URL.revokeObjectURL(fullUrl);
+      
+      // Export 2: Config panel compatible format (for easy loading)
+      const configIOSnapshot = configOptimizer.exportConfigIOSnapshot();
+      const configPanelExport = {
+        name: `Optimized ${configOptimizer.objective} (${genLabel})`,
+        description: `Auto-optimized config targeting ${configOptimizer.objective} objective. Fitness: ${configOptimizer.bestFitness.toFixed(3)}, Convergence: ${(configOptimizer._computeConvergence() * 100).toFixed(1)}%`,
+        snapshot: configIOSnapshot
+      };
+      
+      const panelJson = JSON.stringify(configPanelExport, null, 2);
+      const panelBlob = new Blob([panelJson], { type: 'application/json' });
+      const panelUrl = URL.createObjectURL(panelBlob);
+      const panelLink = documentHandle.createElement('a');
+      panelLink.href = panelUrl;
+      panelLink.download = `config-profile-${genLabel}-${timestamp}.json`;
+      panelLink.click();
+      URL.revokeObjectURL(panelUrl);
+      
+      console.log('✅ Exported 2 files:');
+      console.log(`  1. optimized-config-${genLabel}-${timestamp}.json (full optimizer state)`);
+      console.log(`  2. config-profile-${genLabel}-${timestamp}.json (for config panel)`);
+      console.log('Metadata:', fullExportData.metadata);
+      
+      alert(`Exported 2 files:\n\n1. Full optimizer state (for resuming)\n2. Config profile (import in main config panel [O])`);
+    });
+    
+    ui.on('onLoadConfig', () => {
+      const input = documentHandle.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            
+            if (!data.optimizerState || !data.bestConfig) {
+              alert('Invalid config file format');
+              return;
+            }
+            
+            // Load optimizer state
+            const optimizer = ensureConfigTrainingManager(data.metadata?.objective || 'balanced');
+            configOptimizer.load(data.optimizerState);
+            
+            console.log('Config loaded:', data.metadata);
+            alert(`Loaded config from generation ${data.metadata.generation}`);
+            
+            ui.updateConfigOptStats({
+              status: 'Loaded',
+              generation: configOptimizer.generation,
+              bestFitness: configOptimizer.bestFitness,
+              convergence: configOptimizer._computeConvergence(),
+              hasBestConfig: true
+            });
+            
+          } catch (error) {
+            console.error('Failed to load config:', error);
+            alert(`Failed to load config: ${error.message}`);
+          }
+        };
+        
+        reader.readAsText(file);
+      };
+      
+      input.click();
+    });
+    
+    ui.on('onApplyConfig', () => {
+      if (!configOptimizer || !configOptimizer.bestConfig) {
+        alert('No optimized config to apply');
+        return;
+      }
+      
+      if (!confirm('Apply optimized config to simulation? This will update CONFIG values.')) {
+        return;
+      }
+      
+      configOptimizer.applyConfig(configOptimizer.bestConfig);
+      console.log('✅ Applied optimized config:', configOptimizer.bestConfig);
+      alert('✅ Config applied!\n\nThe simulation is now using the optimized parameters.\n\nPress [Space] to unpause and see the results!');
+    });
+    
+    ui.on('onTestConfig', () => {
+      if (!configOptimizer || !configOptimizer.bestConfig) {
+        alert('No optimized config to test');
+        return;
+      }
+      
+      // Apply config
+      configOptimizer.applyConfig(configOptimizer.bestConfig);
+      console.log('✅ Applied optimized config for testing');
+      
+      // Reset world to see fresh results
+      world.reset();
+      console.log('🔄 World reset for testing');
+      
+      // Unpause if paused
+      if (typeof setWorldPaused === 'function') {
+        setWorldPaused(false);
+      }
+      
+      alert('✅ Config applied and world reset!\n\nWatch the agents perform with the optimized parameters!');
+    });
 
     console.log('Training UI initialized. Press [L] to toggle.');
   }
@@ -524,12 +1082,15 @@ export function createTrainingModule({
     setLearningMode,
     runEpisode,
     ensureTrainingManager,
+    ensureConfigTrainingManager,
     initializeTrainingUI,
     stopTraining,
     isTrainingStopped: () => stopTrainingFlag,
     setStopTrainingFlag: (value) => {
       stopTrainingFlag = Boolean(value);
     },
-    getLastMetrics: () => lastMetricsHistory
+    getLastMetrics: () => lastMetricsHistory,
+    getConfigOptimizer: () => configOptimizer,
+    getConfigTrainingManager: () => configTrainingManager
   };
 }

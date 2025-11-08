@@ -97,11 +97,73 @@ export class TrainingUI {
       <button id="use-policy" style="margin: 5px 0; display: none;">✅ Use This Policy</button>
       <button id="test-policy" style="margin: 5px 0;">🎮 Test Best Policy</button>
       <div style="margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">
-        <div style="font-size: 10px; color: #888; margin-bottom: 5px;">Metrics Export:</div>
-        <button id="export-metrics" style="margin: 5px 0;">📊 Export Metrics JSON</button>
+        <div style="font-size: 10px; color: #888; margin-bottom: 5px;">Training Metrics Export:</div>
+        <button id="export-metrics" style="margin: 5px 0;">📊 Export Training Metrics</button>
       </div>
     `;
     this.panel.appendChild(policySection);
+    
+    // Baseline metrics collection
+    const baselineSection = this.createSection('Baseline Metrics');
+    baselineSection.innerHTML += `
+      <div style="font-size: 10px; color: #aaa; margin-bottom: 8px;">
+        Collect metrics from heuristic AI in play mode to establish baseline performance.
+      </div>
+      <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+        <button id="start-baseline" style="flex: 1;">▶️ Start</button>
+        <button id="stop-baseline" style="flex: 1;" disabled>⏸️ Stop</button>
+      </div>
+      <div id="baseline-status" style="font-size: 10px; color: #888; margin: 5px 0; min-height: 14px;">
+        Not collecting
+      </div>
+      <button id="export-baseline" style="margin: 5px 0; width: 100%;">📊 Export Baseline Metrics</button>
+    `;
+    this.panel.appendChild(baselineSection);
+    
+    // Config Optimization section
+    const configOptSection = this.createSection('Config Optimization');
+    configOptSection.innerHTML += `
+      <div style="font-size: 10px; color: #aaa; margin-bottom: 8px;">
+        Use CEM to optimize CONFIG parameters based on composite metrics.
+      </div>
+      <div style="margin: 10px 0;">
+        <label style="display: block; margin-bottom: 5px; font-size: 11px;">Objective:</label>
+        <select id="config-objective" style="width: 100%; box-sizing: border-box; padding: 5px; background: #222; color: #0f8; border: 1px solid #444;">
+          <option value="balanced">Balanced (F+C+R)</option>
+          <option value="F">Foraging (F)</option>
+          <option value="C">Collective (C)</option>
+          <option value="R">Resilient (R)</option>
+        </select>
+      </div>
+      <div style="margin: 10px 0;">
+        <label style="display: block; margin-bottom: 5px; font-size: 11px;">Generations:</label>
+        <input type="number" id="config-generations" value="5" min="1" max="50" 
+               style="width: 100%; box-sizing: border-box; padding: 5px; background: #222; color: #0f8; border: 1px solid #444;">
+      </div>
+      <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+        <button id="start-config-opt" style="flex: 1;">🚀 Start</button>
+        <button id="stop-config-opt" style="flex: 1;" disabled>⏸️ Stop</button>
+      </div>
+      <div id="config-opt-stats" style="font-size: 10px; color: #888; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid #333;">
+        <div>Generation: <span id="config-gen">0</span></div>
+        <div>Best Fitness: <span id="config-best-fit">-</span></div>
+        <div>Convergence: <span id="config-convergence">-</span></div>
+        <div style="margin-top: 5px; color: #666; font-size: 9px;">Status: <span id="config-status">Idle</span></div>
+      </div>
+      <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+        <button id="save-config" style="flex: 1; font-size: 10px;">💾 Save</button>
+        <button id="load-config" style="flex: 1; font-size: 10px;">📂 Load</button>
+      </div>
+      <div style="display: flex; gap: 5px;">
+        <button id="apply-config" style="flex: 1; font-size: 10px;" disabled>✅ Apply</button>
+        <button id="test-config" style="flex: 1; font-size: 10px;" disabled>🎮 Test</button>
+      </div>
+      <div style="font-size: 9px; color: #666; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 3px;">
+        💡 <strong>Apply</strong> updates CONFIG values<br>
+        💡 <strong>Test</strong> applies + resets world for visual testing
+      </div>
+    `;
+    this.panel.appendChild(configOptSection);
     
     // Chart placeholder
     const chartSection = this.createSection('Learning Curve');
@@ -192,6 +254,129 @@ export class TrainingUI {
       if (this.callbacks.onExportMetrics) {
         this.callbacks.onExportMetrics();
       }
+    });
+    
+    // Baseline collection buttons
+    document.getElementById('start-baseline')?.addEventListener('click', () => {
+      if (this.callbacks.onStartBaseline) {
+        this.callbacks.onStartBaseline();
+      }
+    });
+    
+    document.getElementById('stop-baseline')?.addEventListener('click', () => {
+      if (this.callbacks.onStopBaseline) {
+        this.callbacks.onStopBaseline();
+      }
+    });
+    
+    document.getElementById('export-baseline')?.addEventListener('click', () => {
+      if (this.callbacks.onExportBaseline) {
+        this.callbacks.onExportBaseline();
+      }
+    });
+    
+    // Config optimization buttons
+    document.getElementById('start-config-opt')?.addEventListener('click', () => {
+      const objective = document.getElementById('config-objective')?.value || 'balanced';
+      const generations = parseInt(document.getElementById('config-generations')?.value || 5);
+      if (this.callbacks.onStartConfigOpt) {
+        this.callbacks.onStartConfigOpt(objective, generations);
+      }
+      document.getElementById('start-config-opt').disabled = true;
+      document.getElementById('stop-config-opt').disabled = false;
+    });
+    
+    document.getElementById('stop-config-opt')?.addEventListener('click', () => {
+      if (this.callbacks.onStopConfigOpt) {
+        this.callbacks.onStopConfigOpt();
+      }
+    });
+    
+    document.getElementById('save-config')?.addEventListener('click', () => {
+      if (this.callbacks.onSaveConfig) {
+        this.callbacks.onSaveConfig();
+      }
+    });
+    
+    document.getElementById('load-config')?.addEventListener('click', () => {
+      if (this.callbacks.onLoadConfig) {
+        this.callbacks.onLoadConfig();
+      }
+    });
+    
+    document.getElementById('apply-config')?.addEventListener('click', () => {
+      if (this.callbacks.onApplyConfig) {
+        this.callbacks.onApplyConfig();
+      }
+    });
+    
+    document.getElementById('test-config')?.addEventListener('click', () => {
+      if (this.callbacks.onTestConfig) {
+        this.callbacks.onTestConfig();
+      }
+    });
+  }
+  
+  // Update baseline collection status
+  updateBaselineStatus(isCollecting, snapshotCount = 0) {
+    const statusEl = document.getElementById('baseline-status');
+    const startBtn = document.getElementById('start-baseline');
+    const stopBtn = document.getElementById('stop-baseline');
+    
+    if (statusEl) {
+      if (isCollecting) {
+        statusEl.textContent = `✅ Collecting... (${snapshotCount} snapshots)`;
+        statusEl.style.color = '#00ff88';
+      } else {
+        statusEl.textContent = snapshotCount > 0 
+          ? `Ready to export (${snapshotCount} snapshots)`
+          : 'Not collecting';
+        statusEl.style.color = snapshotCount > 0 ? '#ffaa00' : '#888';
+      }
+    }
+    
+    if (startBtn) startBtn.disabled = isCollecting;
+    if (stopBtn) stopBtn.disabled = !isCollecting;
+  }
+  
+  // Update config optimization stats
+  updateConfigOptStats(stats) {
+    const genEl = document.getElementById('config-gen');
+    const fitEl = document.getElementById('config-best-fit');
+    const convEl = document.getElementById('config-convergence');
+    const statusEl = document.getElementById('config-status');
+    const applyBtn = document.getElementById('apply-config');
+    const testBtn = document.getElementById('test-config');
+    
+    if (genEl) genEl.textContent = stats.generation !== undefined ? stats.generation : '0';
+    if (fitEl) fitEl.textContent = stats.bestFitness !== undefined ? stats.bestFitness.toFixed(3) : '-';
+    if (convEl) {
+      const convergence = stats.convergence !== undefined ? stats.convergence : 0;
+      convEl.textContent = `${(convergence * 100).toFixed(1)}%`;
+    }
+    if (statusEl) statusEl.textContent = stats.status || 'Idle';
+    
+    // Enable apply/test buttons if we have a best config
+    const hasConfig = stats.hasBestConfig;
+    if (applyBtn) {
+      applyBtn.disabled = !hasConfig;
+    }
+    if (testBtn) {
+      testBtn.disabled = !hasConfig;
+    }
+  }
+  
+  // Reset config optimization UI
+  resetConfigOptUI() {
+    const startBtn = document.getElementById('start-config-opt');
+    const stopBtn = document.getElementById('stop-config-opt');
+    
+    if (startBtn) startBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = true;
+    
+    this.updateConfigOptStats({
+      status: 'Idle',
+      hasBestConfig: false
     });
   }
   

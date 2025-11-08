@@ -1,0 +1,259 @@
+{
+  "metadata": {
+    "exportedAt": "2025-11-08T05:16:41.464Z",
+    "generation": 5,
+    "bestFitness": 0.4194465620251692,
+    "objective": "balanced",
+    "convergence": 0.8368532733493065
+  },
+  "optimizerState": {
+    "generation": 5,
+    "mu": [
+      0.11185808916952537,
+      149.74908720524226,
+      0.3256754434543808,
+      114.46589935504262,
+      0.06861512186082089,
+      2.4567442012527083,
+      1.3239397496860446,
+      0.09524890939008042,
+      0.10744799434699995,
+      0.013259653333290006,
+      0.10618168783333974,
+      0.17875032845668745,
+      1.590940509836906,
+      0.6306148512063148,
+      1.2579678075738967,
+      0.024403480575381768,
+      0.013993603034936037,
+      0.0481550146957899,
+      0.5233496144166777
+    ],
+    "sigma": [
+      0.008341502835585345,
+      7.868033791941784,
+      0.030394645771345416,
+      3.496406486563862,
+      0.006283496287291304,
+      0.44560578778057036,
+      0.1367855286195236,
+      0.0032418538184912494,
+      0.037377940859200195,
+      0.002421181442612467,
+      0.03718143451841939,
+      0.007271681565628838,
+      0.05926206133115092,
+      0.018000000000000002,
+      0.10965526327538505,
+      0.0022527012805220363,
+      0.0013340842692032976,
+      0.0027999999999999995,
+      0.026000000000000002
+    ],
+    "bestFitness": 0.4194465620251692,
+    "bestConfig": {
+      "baseDecayPerSecond": 0.10225934057775961,
+      "moveSpeedPxPerSec": 138.776808887637,
+      "moveCostPerSecond": 0.33594369463774587,
+      "sensing.radius": 117.11954539384483,
+      "sensing.costPerSecond": 0.08038385694731574,
+      "sensing.radiusRangeFactor": 1.5690735081762872,
+      "trail.emitPerSecond": 1.4849878602121007,
+      "trail.decayPerSecond": 0.10017547074643464,
+      "trail.attractionGain": 0.09826057662996447,
+      "trail.costPerSecond": 0.01200117685601893,
+      "frustration.riseRate": 0.07208608954907472,
+      "frustration.fallRate": 0.18242791064101688,
+      "frustration.noiseGain": 1.611992569118972,
+      "frustration.hungerAmplify": 0.6029615033838158,
+      "link.formCost": 1.2570109695312317,
+      "link.maintPerSec": 0.02734693200543007,
+      "link.decayPerSec": 0.015458891727680587,
+      "link.strengthenPerUse": 0.052352156180069324,
+      "link.guidanceGain": 0.5279310656686423
+    },
+    "history": [
+      {
+        "generation": 0,
+        "bestFitness": 0.30343523889653484,
+        "meanFitness": -0.5511565825900457,
+        "eliteMeanFitness": 0.043164222594697904,
+        "convergence": 0.6652833668888414
+      },
+      {
+        "generation": 1,
+        "bestFitness": 0.30343523889653484,
+        "meanFitness": -0.6052448670737978,
+        "eliteMeanFitness": 0.07505892010717119,
+        "convergence": 0.7698711357393975
+      },
+      {
+        "generation": 2,
+        "bestFitness": 0.36423215296161643,
+        "meanFitness": -0.35960938650245033,
+        "eliteMeanFitness": 0.12534567238009556,
+        "convergence": 0.8121275734187885
+      },
+      {
+        "generation": 3,
+        "bestFitness": 0.4194465620251692,
+        "meanFitness": -0.4634739529079018,
+        "eliteMeanFitness": 0.1305791801798687,
+        "convergence": 0.8403357368217811
+      },
+      {
+        "generation": 4,
+        "bestFitness": 0.4194465620251692,
+        "meanFitness": -0.43533347758321855,
+        "eliteMeanFitness": 0.09920671193144523,
+        "convergence": 0.8368532733493065
+      }
+    ],
+    "objective": "balanced",
+    "params": [
+      {
+        "path": "baseDecayPerSecond",
+        "min": 0.05,
+        "max": 0.3,
+        "init": 0.1
+      },
+      {
+        "path": "moveSpeedPxPerSec",
+        "min": 80,
+        "max": 250,
+        "init": 150
+      },
+      {
+        "path": "moveCostPerSecond",
+        "min": 0.15,
+        "max": 0.8,
+        "init": 0.35
+      },
+      {
+        "path": "sensing.radius",
+        "min": 40,
+        "max": 200,
+        "init": 100
+      },
+      {
+        "path": "sensing.costPerSecond",
+        "min": 0.01,
+        "max": 0.2,
+        "init": 0.05
+      },
+      {
+        "path": "sensing.radiusRangeFactor",
+        "min": 1.2,
+        "max": 3,
+        "init": 2
+      },
+      {
+        "path": "trail.emitPerSecond",
+        "min": 0.3,
+        "max": 2,
+        "init": 1
+      },
+      {
+        "path": "trail.decayPerSecond",
+        "min": 0.03,
+        "max": 0.15,
+        "init": 0.08
+      },
+      {
+        "path": "trail.attractionGain",
+        "min": 0.05,
+        "max": 0.4,
+        "init": 0.15
+      },
+      {
+        "path": "trail.costPerSecond",
+        "min": 0.005,
+        "max": 0.08,
+        "init": 0.02
+      },
+      {
+        "path": "frustration.riseRate",
+        "min": 0.03,
+        "max": 0.3,
+        "init": 0.1
+      },
+      {
+        "path": "frustration.fallRate",
+        "min": 0.03,
+        "max": 0.3,
+        "init": 0.15
+      },
+      {
+        "path": "frustration.noiseGain",
+        "min": 0.5,
+        "max": 2.5,
+        "init": 1.5
+      },
+      {
+        "path": "frustration.hungerAmplify",
+        "min": 0.1,
+        "max": 1,
+        "init": 0.5
+      },
+      {
+        "path": "link.formCost",
+        "min": 0.5,
+        "max": 3,
+        "init": 1.2
+      },
+      {
+        "path": "link.maintPerSec",
+        "min": 0.005,
+        "max": 0.08,
+        "init": 0.02
+      },
+      {
+        "path": "link.decayPerSec",
+        "min": 0.005,
+        "max": 0.05,
+        "init": 0.015
+      },
+      {
+        "path": "link.strengthenPerUse",
+        "min": 0.01,
+        "max": 0.15,
+        "init": 0.04
+      },
+      {
+        "path": "link.guidanceGain",
+        "min": 0.2,
+        "max": 1.5,
+        "init": 0.6
+      }
+    ]
+  },
+  "bestConfig": {
+    "baseDecayPerSecond": 0.10225934057775961,
+    "moveSpeedPxPerSec": 138.776808887637,
+    "moveCostPerSecond": 0.33594369463774587,
+    "sensing": {
+      "radius": 117.11954539384483,
+      "costPerSecond": 0.08038385694731574,
+      "radiusRangeFactor": 1.5690735081762872
+    },
+    "trail": {
+      "emitPerSecond": 1.4849878602121007,
+      "decayPerSecond": 0.10017547074643464,
+      "attractionGain": 0.09826057662996447,
+      "costPerSecond": 0.01200117685601893
+    },
+    "frustration": {
+      "riseRate": 0.07208608954907472,
+      "fallRate": 0.18242791064101688,
+      "noiseGain": 1.611992569118972,
+      "hungerAmplify": 0.6029615033838158
+    },
+    "link": {
+      "formCost": 1.2570109695312317,
+      "maintPerSec": 0.02734693200543007,
+      "decayPerSec": 0.015458891727680587,
+      "strengthenPerUse": 0.052352156180069324,
+      "guidanceGain": 0.5279310656686423
+    }
+  }
+}
