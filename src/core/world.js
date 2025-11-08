@@ -86,8 +86,7 @@ export function createWorld(context) {
       // Clear all links on reset
       Links.length = 0;
 
-      // Reset mitosis tracking
-      this.nextAgentId = 5;
+      // Reset mitosis tracking (will be set after bundles are created)
       this.totalBirths = 0;
       this.lineageLinks = [];
 
@@ -111,12 +110,23 @@ export function createWorld(context) {
 
       const cx = canvasWidth() / 2;
       const cy = canvasHeight() / 2;
-      this.bundles = [
-        new Bundle(cx - 100, cy - 80, CONFIG.bundleSize, CONFIG.startChi, 1),
-        new Bundle(cx + 100, cy + 80, CONFIG.bundleSize, CONFIG.startChi, 2),
-        new Bundle(cx - 100, cy + 80, CONFIG.bundleSize, CONFIG.startChi, 3),
-        new Bundle(cx + 100, cy - 80, CONFIG.bundleSize, CONFIG.startChi, 4),
-      ];
+      
+      // Create starting agents based on config
+      const numAgents = Math.max(1, Math.floor(CONFIG.startingAgents || 4));
+      this.bundles = [];
+      
+      // Position agents in a circle around the center
+      const radius = Math.min(canvasWidth(), canvasHeight()) * 0.15; // 15% of smaller dimension
+      for (let i = 0; i < numAgents; i++) {
+        const angle = (i / numAgents) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const agentId = i + 1; // IDs start at 1
+        this.bundles.push(new Bundle(x, y, CONFIG.bundleSize, CONFIG.startChi, agentId));
+      }
+      
+      // Set next agent ID to continue after starting agents
+      this.nextAgentId = numAgents + 1;
 
       // Initialize resource ecology
       this.resources = [];

@@ -93,7 +93,18 @@ export function collectResource({
   if (typeof normalizeRewardSignal === 'function') {
     rewardSignal = normalizeRewardSignal(rewardChi);
     if (rewardSignal > 0 && typeof bundle.emitSignal === 'function') {
-      bundle.emitSignal('resource', rewardSignal, { absolute: true, x: bundle.x, y: bundle.y });
+      // Emit stronger consumption signal with persistence
+      const consumptionStrength = config?.signal?.resourceConsumptionStrength || 1.0;
+      const persistence = config?.signal?.resourceConsumptionPersistence || 3;
+      
+      // Use the configured consumption strength instead of normalized reward
+      const signalStrength = Math.max(rewardSignal, consumptionStrength);
+      bundle.emitSignal('resource', signalStrength, { absolute: true, x: bundle.x, y: bundle.y });
+      
+      // Set up persistent signal deposits
+      if (persistence > 1) {
+        bundle._consumptionSignalFrames = persistence - 1; // -1 because we already emitted once
+      }
     }
   }
 

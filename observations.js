@@ -160,6 +160,11 @@ function getResourceInfo(bundle, resource) {
     return { dx: 0, dy: 0, visible: 0 };
   }
   
+  // Don't provide info about depleted or invisible resources
+  if (resource.depleted || !resource.visible) {
+    return { dx: 0, dy: 0, visible: 0 };
+  }
+  
   const dx = resource.x - bundle.x;
   const dy = resource.y - bundle.y;
   const dist = Math.hypot(dx, dy);

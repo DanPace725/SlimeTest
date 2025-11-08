@@ -108,6 +108,7 @@ export const CONFIG = {
   rewardChi: 10,                    // DEPRECATED: kept for backward compatibility
   resourceRadius: 10,
   bundleSize: 40,
+  startingAgents: 4,                // Number of agents to start the simulation with
 
   // === Turing Completeness Recording ===
   tc: {
@@ -335,7 +336,8 @@ export const CONFIG = {
     vitalityConsumePerSec: 0.10,     // Resource health depletes from orbiting
     vitalityRecoverPerSec: 0.02,     // Resource health recovers when not orbited
     minVitality: 0.0,                // Floor for vitality (0 = completely depleted)
-    depletionThreshold: 0.3          // Below this, resource becomes uncollectible
+    depletionThreshold: 0.3,         // Below this, resource becomes uncollectible
+    vitalityToChiRate: 2.0            // Chi gained per unit of vitality consumed (conversion rate)
   },
 
   // === TC-Resource Integration ===
@@ -500,7 +502,11 @@ export const CONFIG = {
       resource: 1.0,
       distress: 1.0,
       bond: 1.0
-    }
+    },
+    // Resource signal strengths
+    resourceSensingStrength: 0.3,      // Signal strength when agent first senses a resource
+    resourceConsumptionStrength: 1.0,    // Signal strength when agent consumes a resource
+    resourceConsumptionPersistence: 3,   // Number of frames to deposit consumption signal (for persistence)
   },
 
   // === Participation Modes (channel gating & falloff) ===
@@ -562,6 +568,7 @@ export const CONFIG_SCHEMA = {
   Resources: {
     resourceRadius: { label: "Resource radius (px)", min: 1, max: 80, step: 1 },
     bundleSize: { label: "Bundle size", min: 1, max: 200, step: 1 },
+    startingAgents: { label: "Starting agents", min: 1, max: 100, step: 1 },
     resourceDynamicCount: { label: "Dynamic resource count", type: "boolean" },
     resourceInitialMin: { label: "Initial min resources", min: 0, max: 100, step: 1 },
     resourceInitialMax: { label: "Initial max resources", min: 0, max: 150, step: 1 },
@@ -707,6 +714,7 @@ export const CONFIG_SCHEMA = {
     "scentGradient.vitalityRecoverPerSec": { label: "Vitality recover/sec", min: 0, max: 1, step: 0.01 },
     "scentGradient.minVitality": { label: "Min vitality", min: 0, max: 1, step: 0.01 },
     "scentGradient.depletionThreshold": { label: "Depletion threshold", min: 0, max: 1, step: 0.01 },
+    "scentGradient.vitalityToChiRate": { label: "Vitality to χ rate", min: 0, max: 10, step: 0.1 },
   },
   Mitosis: {
     "mitosis.enabled": { label: "Enable mitosis", type: "boolean" },
@@ -800,6 +808,9 @@ export const CONFIG_SCHEMA = {
     "signal.decay.resource": { label: "Resource bias decay", min: 0, max: 1, step: 0.01 },
     "signal.decay.distress": { label: "Distress bias decay", min: 0, max: 1, step: 0.01 },
     "signal.decay.bond": { label: "Bond bias decay", min: 0, max: 1, step: 0.01 },
+    "signal.resourceSensingStrength": { label: "Resource sensing strength", min: 0, max: 2, step: 0.05 },
+    "signal.resourceConsumptionStrength": { label: "Resource consumption strength", min: 0, max: 2, step: 0.05 },
+    "signal.resourceConsumptionPersistence": { label: "Consumption persistence (frames)", min: 1, max: 10, step: 1 },
     "signal.channelWeights.resource": { label: "Resource channel weight", min: 0, max: 5, step: 0.01 },
     "signal.channelWeights.distress": { label: "Distress channel weight", min: 0, max: 5, step: 0.01 },
     "signal.channelWeights.bond": { label: "Bond channel weight", min: 0, max: 5, step: 0.01 },
@@ -837,6 +848,7 @@ const CONFIG_HINTS = {
   // Resources
   resourceRadius: "Visual radius of each resource patch.",
   bundleSize: "How many chi units each pickup contains.",
+  startingAgents: "Number of agents to start the simulation with.",
   resourceDynamicCount: "Toggle adaptive resource spawning vs fixed count.",
   resourceInitialMin: "Minimum resources spawned at boot.",
   resourceInitialMax: "Maximum resources spawned at boot.",
@@ -966,6 +978,11 @@ const CONFIG_HINTS = {
   "scentGradient.minStrength": "Minimum scent strength floor.",
   "scentGradient.minRange": "Minimum scent range floor in pixels.",
   "scentGradient.orbitBandPx": "Radius band counted as orbiting a resource.",
+  "scentGradient.vitalityConsumePerSec": "How fast resource vitality depletes when orbited.",
+  "scentGradient.vitalityRecoverPerSec": "How fast resource vitality recovers when not orbited.",
+  "scentGradient.minVitality": "Minimum vitality floor (0 = can fully deplete).",
+  "scentGradient.depletionThreshold": "Vitality below which resource becomes uncollectible.",
+  "scentGradient.vitalityToChiRate": "Chi gained per unit of vitality consumed by orbiting agents.",
 
   // Mitosis
   "mitosis.enabled": "Enable reproduction mechanics.",
@@ -1059,6 +1076,9 @@ const CONFIG_HINTS = {
   "signal.decay.resource": "Per-tick decay factor for resource interpretation bias.",
   "signal.decay.distress": "Per-tick decay factor for distress interpretation bias.",
   "signal.decay.bond": "Per-tick decay factor for bond interpretation bias.",
+  "signal.resourceSensingStrength": "Signal strength emitted when agent first detects a resource.",
+  "signal.resourceConsumptionStrength": "Signal strength emitted when agent consumes a resource.",
+  "signal.resourceConsumptionPersistence": "Number of frames to deposit consumption signal for increased persistence.",
   "signal.channelWeights.resource": "Weight applied when resource signals steer agents.",
   "signal.channelWeights.distress": "Weight applied when distress signals amplify exploration noise.",
   "signal.channelWeights.bond": "Weight applied when bond signals dampen cooperative guidance.",

@@ -73,6 +73,9 @@ export function getScentGradient(x, y, resources) {
   
   // Sample each resource's contribution
   for (const resource of resources) {
+    // Skip depleted or invisible resources - they emit no signal
+    if (resource.depleted || !resource.visible) continue;
+    
     const dx = resource.x - x;
     const dy = resource.y - y;
     const dist = Math.hypot(dx, dy);
@@ -144,6 +147,9 @@ export function getFoodDensitySensing(x, y, resources) {
   let totalWeight = 0;
   
   for (const resource of resources) {
+    // Skip depleted or invisible resources - they don't count for density sensing
+    if (resource.depleted || !resource.visible) continue;
+    
     const dx = resource.x - x;
     const dy = resource.y - y;
     const dist = Math.hypot(dx, dy);

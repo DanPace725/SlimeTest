@@ -1726,21 +1726,52 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
         const vitalityRecoverRate = CONFIG.scentGradient.vitalityRecoverPerSec * dt;
         const minVitality = CONFIG.scentGradient.minVitality;
         const depletionThreshold = CONFIG.scentGradient.depletionThreshold;
+        const vitalityToChiRate = CONFIG.scentGradient.vitalityToChiRate || 0;
 
         for (const res of World.resources) {
-          if (!res.visible) continue;
-          let nearest = Infinity;
+          // Skip invisible resources unless they're depleted (need to recover)
+          if (!res.visible && !res.depleted) continue;
+          
+          const inner = res.r;
+          const outer = res.r + orbitBand;
+          
+          // Find all orbiting agents and their distances
+          const orbitingAgents = [];
           for (const bundle of World.bundles) {
             if (!bundle.alive) continue;
             const d = Math.hypot(res.x - bundle.x, res.y - bundle.y);
-            if (d < nearest) nearest = d;
+            if (d > inner && d <= outer) {
+              // Calculate proximity factor (closer = higher)
+              const t = 1 - (d - inner) / Math.max(1e-6, outer - inner);
+              const proximity = t * t; // Quadratic falloff
+              orbitingAgents.push({ bundle, distance: d, proximity });
+            }
           }
-          const inner = res.r;
-          const outer = res.r + orbitBand;
-          if (nearest > inner && nearest <= outer) {
-            // Agent is orbiting - consume both scent and vitality
-            const t = 1 - (nearest - inner) / Math.max(1e-6, outer - inner);
-            const use = t * t;
+          
+          // Handle depleted resources separately - they can only recover, not be consumed
+          if (res.depleted) {
+            // Depleted resources recover vitality (but no agents can orbit them since they're invisible)
+            res.vitality = Math.min(1.0, res.vitality + vitalityRecoverRate);
+            
+            // Un-deplete if recovered above threshold
+            if (res.vitality > depletionThreshold + 0.1) {
+              res.depleted = false;
+              res.visible = true; // Show recovered resources
+              // Reset scent strength to base when recovering
+              res.scentStrength = baseStrength;
+              res.scentRange = baseRange;
+            }
+            continue; // Skip the rest of the processing for depleted resources
+          }
+          
+          if (orbitingAgents.length > 0) {
+            // Calculate total consumption intensity (sum of all agents' proximity)
+            // More agents orbiting = faster depletion
+            const totalProximity = orbitingAgents.reduce((sum, agent) => sum + agent.proximity, 0);
+            const use = Math.min(1.0, totalProximity); // Cap at 1.0 to prevent excessive depletion
+            
+            // Store vitality before consumption
+            const vitalityBefore = res.vitality;
             
             // Deplete scent
             res.scentStrength = Math.max(minStrength, res.scentStrength - consumeRate * use);
@@ -1751,9 +1782,31 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
             // Deplete vitality (resource health)
             res.vitality = Math.max(minVitality, res.vitality - vitalityConsumeRate * use);
             
+            // Calculate how much vitality was consumed
+            const vitalityConsumed = vitalityBefore - res.vitality;
+            
+            // Convert consumed vitality to chi and distribute among orbiting agents
+            if (vitalityConsumed > 0 && vitalityToChiRate > 0) {
+              const totalChiGain = vitalityConsumed * vitalityToChiRate;
+              
+              // Distribute chi proportionally based on proximity
+              // Agents closer to the resource get more chi
+              for (const { bundle, proximity } of orbitingAgents) {
+                const agentShare = totalProximity > 0 ? (proximity / totalProximity) : (1 / orbitingAgents.length);
+                const chiGain = totalChiGain * agentShare;
+                
+                // Apply chi gain to agent
+                if (chiGain > 0 && Number.isFinite(chiGain)) {
+                  bundle.chi = Math.max(0, (bundle.chi || 0) + chiGain);
+                }
+              }
+            }
+            
             // Mark as depleted if below threshold
             if (res.vitality <= depletionThreshold) {
               res.depleted = true;
+              res.visible = false; // Hide depleted resources
+              res.scentStrength = 0; // No signal from depleted resources
             }
           } else {
             // No agent orbiting - recover scent and vitality
@@ -1763,9 +1816,10 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
             // Recover vitality
             res.vitality = Math.min(1.0, res.vitality + vitalityRecoverRate);
             
-            // Un-deplete if recovered above threshold
+            // Un-deplete if recovered above threshold (shouldn't happen here since depleted resources are handled separately)
             if (res.vitality > depletionThreshold + 0.1) {
               res.depleted = false;
+              res.visible = true; // Show recovered resources
             }
           }
         }
