@@ -729,14 +729,23 @@ export function createBundleClass(context) {
         this.graphics.y = this.visualY;
 
         // Get color using dynamic color function
-        let color = parseInt(getAgentColor(this.id, this.alive).substring(1), 16);
-
+        let color;
         if (this.alive) {
-            const chiPercentage = this.chi / CONFIG.maxChi;
-            const red = Math.round(255 * (1 - chiPercentage));
-            const green = Math.round(255 * chiPercentage);
-            const blue = 0;
-            color = (red << 16) | (green << 8) | blue;
+            const baseColor = getAgentColorRGB(this.id);
+            if (isNaN(baseColor.r) || isNaN(baseColor.g) || isNaN(baseColor.b)) {
+                color = 0xFF00FF; // Bright pink for debugging
+            } else {
+                const chiPercentage = Math.max(0, Math.min(1, this.chi / CONFIG.maxChi));
+
+                // Interpolate between the agent's unique color and red based on chi percentage
+                const r = Math.round(baseColor.r * chiPercentage + 255 * (1 - chiPercentage));
+                const g = Math.round(baseColor.g * chiPercentage + 0 * (1 - chiPercentage));
+                const b = Math.round(baseColor.b * chiPercentage + 0 * (1 - chiPercentage));
+
+                color = (r << 16) | (g << 8) | b;
+            }
+        } else {
+            color = parseInt(getAgentColor(this.id, this.alive).substring(1), 16);
         }
 
         // sensory ring when extended
