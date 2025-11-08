@@ -6,6 +6,10 @@ export function initializeCanvasManager({ canvas, ctx, getAvailableSize }) {
   let dpr = 1;
   let canvasWidth = typeof window !== 'undefined' ? window.innerWidth : canvas?.width || 0;
   let canvasHeight = typeof window !== 'undefined' ? window.innerHeight : canvas?.height || 0;
+  let offsetTop = 0;
+  let offsetLeft = 0;
+  let offsetBottom = 0;
+  let offsetRight = 0;
   const resizeCallbacks = new Set();
 
   const applyResize = () => {
@@ -17,8 +21,12 @@ export function initializeCanvasManager({ canvas, ctx, getAvailableSize }) {
       ? getAvailableSize()
       : { width: canvasWidth, height: canvasHeight };
 
-    canvasWidth = size?.width ?? canvasWidth;
-    canvasHeight = size?.height ?? canvasHeight;
+    canvasWidth = Math.max(0, size?.width ?? canvasWidth);
+    canvasHeight = Math.max(0, size?.height ?? canvasHeight);
+    offsetTop = Math.max(0, size?.topOffset ?? 0);
+    offsetLeft = Math.max(0, size?.leftOffset ?? 0);
+    offsetBottom = Math.max(0, size?.bottomOffset ?? 0);
+    offsetRight = Math.max(0, size?.rightOffset ?? 0);
 
     const targetWidth = Math.floor(canvasWidth * dpr);
     const targetHeight = Math.floor(canvasHeight * dpr);
@@ -34,12 +42,24 @@ export function initializeCanvasManager({ canvas, ctx, getAvailableSize }) {
       canvas.style.width = `${canvasWidth}px`;
       canvas.style.height = `${canvasHeight}px`;
       canvas.style.position = 'fixed';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
+      canvas.style.top = `${offsetTop}px`;
+      canvas.style.left = `${offsetLeft}px`;
+      canvas.style.right = 'auto';
+      canvas.style.bottom = 'auto';
     }
 
     for (const callback of resizeCallbacks) {
-      callback({ width: canvasWidth, height: canvasHeight, dpr, canvas, ctx });
+      callback({
+        width: canvasWidth,
+        height: canvasHeight,
+        dpr,
+        canvas,
+        ctx,
+        topOffset: offsetTop,
+        leftOffset: offsetLeft,
+        bottomOffset: offsetBottom,
+        rightOffset: offsetRight
+      });
     }
   };
 
@@ -55,7 +75,15 @@ export function initializeCanvasManager({ canvas, ctx, getAvailableSize }) {
     return () => {};
   };
 
-  const getState = () => ({ width: canvasWidth, height: canvasHeight, dpr });
+  const getState = () => ({
+    width: canvasWidth,
+    height: canvasHeight,
+    dpr,
+    topOffset: offsetTop,
+    leftOffset: offsetLeft,
+    bottomOffset: offsetBottom,
+    rightOffset: offsetRight
+  });
 
   return { resizeCanvas: applyResize, onResize, getState };
 }

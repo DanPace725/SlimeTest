@@ -76,17 +76,84 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
     let canvasWidth = innerWidth;
     let canvasHeight = innerHeight;
 
-    const getAvailableSize = () => {
-      const configPanel = document.getElementById("config-panel");
-      const panelOpen = configPanel && configPanel.style.display !== "none";
-      const panelWidth = panelOpen ? 360 : 0; // Config panel width
-      // Canvas now fills full viewport, HUD/Dashboard are drawn on top
+    const getViewportMetrics = () => {
+      const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
+      const width = viewport ? Math.floor(viewport.width) : innerWidth;
+      const height = viewport ? Math.floor(viewport.height) : innerHeight;
+      const offsetTop = viewport ? Math.floor(viewport.offsetTop) : 0;
+      const offsetLeft = viewport ? Math.floor(viewport.offsetLeft) : 0;
+      const offsetBottom = viewport
+        ? Math.floor(Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop)))
+        : 0;
+      const offsetRight = viewport
+        ? Math.floor(Math.max(0, window.innerWidth - (viewport.width + viewport.offsetLeft)))
+        : 0;
+
+      return { width, height, offsetTop, offsetLeft, offsetBottom, offsetRight };
+    };
+
+    const measureMobileOverlayInsets = ({ offsetTop, height }) => {
+      const body = document.body;
+      if (!body) return { top: 0, bottom: 0 };
+
+      const isMobile = body.classList.contains('is-mobile');
+      const overlaysOpen = body.classList.contains('mobile-overlays-open');
+
+      if (!(isMobile && overlaysOpen)) {
+        return { top: 0, bottom: 0 };
+      }
+
+      const viewportBottom = offsetTop + height;
+      let topInset = 0;
+      let bottomInset = 0;
+
+      const hud = document.getElementById('hud-container');
+      if (hud && !hud.classList.contains('hidden')) {
+        const hudRect = hud.getBoundingClientRect();
+        topInset = Math.max(topInset, Math.ceil(hudRect.bottom - offsetTop + 12));
+      }
+
+      const dashboard = document.getElementById('dashboard-container');
+      if (dashboard && !dashboard.classList.contains('hidden')) {
+        const dashboardRect = dashboard.getBoundingClientRect();
+        topInset = Math.max(topInset, Math.ceil(dashboardRect.bottom - offsetTop + 12));
+      }
+
+      const hotkeyStrip = document.getElementById('hotkey-strip');
+      if (hotkeyStrip && !hotkeyStrip.classList.contains('hidden')) {
+        const hotkeyRect = hotkeyStrip.getBoundingClientRect();
+        bottomInset = Math.max(bottomInset, Math.ceil(viewportBottom - hotkeyRect.top + 12));
+      }
 
       return {
-        width: innerWidth - panelWidth,
-        height: innerHeight,
-        panelWidth: panelWidth,
-        topReserve: 0
+        top: Math.max(0, topInset),
+        bottom: Math.max(0, bottomInset)
+      };
+    };
+
+    const getAvailableSize = () => {
+      const viewportMetrics = getViewportMetrics();
+      const overlayInsets = measureMobileOverlayInsets(viewportMetrics);
+
+      const configPanel = document.getElementById("config-panel");
+      const panelOpen = configPanel && configPanel.style.display !== "none";
+      const maxPanelWidth = panelOpen ? 360 : 0; // Config panel width when space permits
+      const availableWidth = Math.max(0, viewportMetrics.width - 80);
+      const panelWidth = panelOpen ? Math.min(maxPanelWidth, availableWidth) : 0;
+
+      const width = Math.max(0, viewportMetrics.width - panelWidth);
+      const height = Math.max(0, viewportMetrics.height - overlayInsets.top - overlayInsets.bottom);
+      const topOffset = viewportMetrics.offsetTop + overlayInsets.top;
+      const bottomOffset = viewportMetrics.offsetBottom + overlayInsets.bottom;
+
+      return {
+        width,
+        height,
+        panelWidth,
+        topOffset,
+        bottomOffset,
+        leftOffset: viewportMetrics.offsetLeft,
+        rightOffset: viewportMetrics.offsetRight + (panelOpen ? panelWidth : 0)
       };
     };
     
@@ -874,7 +941,7 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       FertilityField = new FertilityGrid(canvasWidth, canvasHeight);
     }
 
-    canvasManager.onResize(({ width, height }) => {
+    canvasManager.onResize(({ width, height, dpr }) => {
       if (Trail && Trail.resize) {
         Trail.resize();
       }
@@ -886,7 +953,10 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       if (CONFIG.plantEcology.enabled && typeof FertilityGrid !== 'undefined') {
         FertilityField = new FertilityGrid(width, height);
       }
-      pixiApp.renderer.resize(width, height);
+      if (pixiApp?.renderer) {
+        pixiApp.renderer.resolution = dpr || pixiApp.renderer.resolution || 1;
+        pixiApp.renderer.resize(width, height);
+      }
     });
 
     // Now that Trail is defined, call initial resize
