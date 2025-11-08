@@ -73,8 +73,9 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
   
     // ---------- DPR-aware sizing ----------
     let dpr = 1;
-    let canvasWidth = innerWidth;
-    let canvasHeight = innerHeight;
+    const initialVp = typeof window !== 'undefined' ? window.visualViewport : null;
+    let canvasWidth = initialVp ? Math.floor(initialVp.width) : innerWidth;
+    let canvasHeight = initialVp ? Math.floor(initialVp.height) : innerHeight;
 
     const getAvailableSize = () => {
       const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
