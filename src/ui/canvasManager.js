@@ -4,8 +4,8 @@ export function initializeCanvasManager({ canvas, ctx, getAvailableSize }) {
   }
 
   let dpr = 1;
-  let canvasWidth = typeof window !== 'undefined' ? window.innerWidth : canvas?.width || 0;
-  let canvasHeight = typeof window !== 'undefined' ? window.innerHeight : canvas?.height || 0;
+  let canvasWidth = (typeof window !== 'undefined' && window.visualViewport) ? Math.floor(window.visualViewport.width) : (typeof window !== 'undefined' ? window.innerWidth : canvas?.width || 0);
+  let canvasHeight = (typeof window !== 'undefined' && window.visualViewport) ? Math.floor(window.visualViewport.height) : (typeof window !== 'undefined' ? window.innerHeight : canvas?.height || 0);
   const resizeCallbacks = new Set();
 
   const applyResize = () => {
