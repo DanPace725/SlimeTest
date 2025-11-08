@@ -91,6 +91,24 @@ export function createWorld(context) {
       this.totalBirths = 0;
       this.lineageLinks = [];
 
+      // Destroy all existing bundles (clear PixiJS graphics)
+      if (this.bundles) {
+        this.bundles.forEach(bundle => {
+          if (bundle && typeof bundle.destroy === 'function') {
+            bundle.destroy();
+          }
+        });
+      }
+
+      // Destroy all existing resources (clear PixiJS graphics)
+      if (this.resources) {
+        this.resources.forEach(resource => {
+          if (resource && typeof resource.destroy === 'function') {
+            resource.destroy();
+          }
+        });
+      }
+
       const cx = canvasWidth() / 2;
       const cy = canvasHeight() / 2;
       this.bundles = [

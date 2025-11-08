@@ -20,7 +20,7 @@ export function initializeInputManager({
 }) {
   const held = new Set();
   const state = {
-    showScentGradient: true,
+    showScentGradient: false,
     showFertility: false,
     hudDisplayMode: 'full',
     showAgentDashboard: false

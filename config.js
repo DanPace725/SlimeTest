@@ -242,7 +242,7 @@ export const CONFIG = {
   depositPerSec: 2.5,
   evapPerSec: .05,
   diffusePerSec: .08,
-  enableDiffusion: true,             // Diffusion off by default for cleaner trails
+  enableDiffusion: true,
   renderTrail: true,
 
   // === Residuals (public-good reuse) ===

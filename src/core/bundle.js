@@ -42,7 +42,8 @@ export function createBundleClass(context) {
     provokeBondedExploration,
     getAgentColor,
     getAgentColorRGB,
-    agentTrailsContainer,
+    getAgentTrailsContainer,
+    getAgentsContainer,
     getWorld
   } = context;
 
@@ -62,7 +63,8 @@ export function createBundleClass(context) {
   if (typeof provokeBondedExploration !== 'function') throw new Error('provokeBondedExploration dependency is required');
   if (typeof getAgentColor !== 'function') throw new Error('getAgentColor dependency is required');
   if (typeof getAgentColorRGB !== 'function') throw new Error('getAgentColorRGB dependency is required');
-  if (!agentTrailsContainer) throw new Error('agentTrailsContainer dependency is required');
+  if (typeof getAgentTrailsContainer !== 'function') throw new Error('getAgentTrailsContainer dependency is required');
+  if (typeof getAgentsContainer !== 'function') throw new Error('getAgentsContainer dependency is required');
   if (typeof getWorld !== 'function') throw new Error('getWorld dependency is required');
 
   const currentTick = () => getGlobalTick();
@@ -79,7 +81,7 @@ export function createBundleClass(context) {
   });
 
   class SmoothTrailRenderer {
-    constructor({ container, maxPoints = 18 }) {
+    constructor({ container, maxPoints = 24 }) {
       this.container = container;
       this.maxPoints = maxPoints;
       this.points = [];
@@ -92,8 +94,8 @@ export function createBundleClass(context) {
       this.graphics.zIndex = -5;
       this.container.addChild(this.glowGraphics);
       this.container.addChild(this.graphics);
-      this.tailFadeTicks = 40;
-      this.baseWidth = 8;
+      this.tailFadeTicks = 25; // Faster fade for cleaner look
+      this.baseWidth = 6; // Slightly thinner trails
       this.lastColor = { r: 255, g: 255, b: 255 };
       this.visible = true;
       this.roundCap = PIXI?.LINE_CAP?.ROUND ?? 'round';
@@ -114,11 +116,15 @@ export function createBundleClass(context) {
       this.lastColor = color || this.lastColor;
       const tick = currentTick();
       const last = this.points[this.points.length - 1];
-      if (!last || Math.hypot(last.x - point.x, last.y - point.y) > 2) {
+      
+      // Lower threshold for smoother trails (was 2, now 1.5)
+      const minDist = 1.5;
+      if (!last || Math.hypot(last.x - point.x, last.y - point.y) > minDist) {
         this.points.push({ ...point, tick, alive });
       } else {
-        last.x = point.x;
-        last.y = point.y;
+        // Smoothly update last point position instead of replacing
+        last.x = mix(last.x, point.x, 0.6);
+        last.y = mix(last.y, point.y, 0.6);
         last.tick = tick;
         last.alive = alive;
       }
@@ -146,26 +152,34 @@ export function createBundleClass(context) {
       }
 
       const baseColor = this.lastColor;
-      const shadowColor = lerpColor(baseColor, { r: 0, g: 0, b: 0 }, 0.5);
-      const glowColor = lerpColor(baseColor, { r: 255, g: 255, b: 255 }, 0.55);
+      const shadowColor = lerpColor(baseColor, { r: 0, g: 0, b: 0 }, 0.4);
+      const glowColor = lerpColor(baseColor, { r: 255, g: 255, b: 255 }, 0.6);
       const totalSegments = this.points.length - 1;
       const speedBoost = clamp((this.currentSpeed || 0) / CONFIG.moveSpeedPxPerSec, 0, 1);
 
+      // Use Catmull-Rom spline for smoother curves
       for (let i = 0; i < totalSegments; i++) {
         const start = this.points[i];
         const end = this.points[i + 1];
         const t = i / totalSegments;
-        const aliveFactor = start.alive ? 1 : 0.6;
-        const width = this.baseWidth * (1 - t * 0.65) * aliveFactor;
-        const alpha = clamp((1 - t) * 0.6 + speedBoost * 0.25, 0.08, 0.85);
-        const color = lerpColor(shadowColor, baseColor, Math.pow(1 - t, 0.8));
-        const glowAlpha = clamp((1 - t) * 0.25 + speedBoost * 0.35, 0.05, 0.6);
-        const glowWidth = Math.max(width * 1.8, this.baseWidth * 0.9);
+        const aliveFactor = start.alive ? 1 : 0.5;
+        
+        // Smoother width taper with exponential curve
+        const widthTaper = Math.pow(1 - t, 1.2);
+        const width = this.baseWidth * widthTaper * aliveFactor;
+        
+        // Smoother alpha fade
+        const alphaFade = Math.pow(1 - t, 0.7);
+        const alpha = clamp(alphaFade * 0.7 + speedBoost * 0.2, 0.1, 0.8);
+        
+        const color = lerpColor(shadowColor, baseColor, Math.pow(1 - t, 0.6));
+        const glowAlpha = clamp(alphaFade * 0.3 + speedBoost * 0.25, 0.05, 0.5);
+        const glowWidth = Math.max(width * 2.0, this.baseWidth * 0.8);
 
-        if (this.glowGraphics) {
+        if (this.glowGraphics && glowAlpha > 0.02) {
           this.glowGraphics.lineStyle({
-            width: Math.max(2.5, glowWidth),
-            color: rgbToHexNumber(lerpColor(color, glowColor, 0.65)),
+            width: Math.max(2, glowWidth),
+            color: rgbToHexNumber(lerpColor(color, glowColor, 0.7)),
             alpha: glowAlpha,
             cap: this.roundCap,
             join: this.roundJoin
@@ -173,17 +187,24 @@ export function createBundleClass(context) {
         }
 
         this.graphics.lineStyle({
-          width: Math.max(1.5, width),
+          width: Math.max(1.2, width),
           color: rgbToHexNumber(color),
           alpha,
           cap: this.roundCap,
           join: this.roundJoin
         });
 
-        const controlX = start.x + (end.x - start.x) * 0.45;
-        const controlY = start.y + (end.y - start.y) * 0.45;
+        // Better curve control point for smoother bends
+        // Use look-ahead for better anticipation of curves
+        const prev = i > 0 ? this.points[i - 1] : start;
+        const next = i < totalSegments - 1 ? this.points[i + 2] : end;
+        
+        // Catmull-Rom inspired control point
+        const tension = 0.5;
+        const controlX = start.x + (end.x - prev.x) * tension * 0.5;
+        const controlY = start.y + (end.y - prev.y) * tension * 0.5;
 
-        if (this.glowGraphics) {
+        if (this.glowGraphics && glowAlpha > 0.02) {
           this.glowGraphics.moveTo(start.x, start.y);
           this.glowGraphics.quadraticCurveTo(controlX, controlY, end.x, end.y);
         }
@@ -194,7 +215,7 @@ export function createBundleClass(context) {
 
       const head = this.points[this.points.length - 1];
       if (head && this.glowGraphics) {
-        const headRadius = Math.max(3, this.baseWidth * (0.6 + speedBoost));
+        const headRadius = Math.max(2.5, this.baseWidth * (0.5 + speedBoost * 0.4));
         const headAlpha = clamp(0.22 + speedBoost * 0.4, 0.22, 0.8);
         this.glowGraphics.beginFill(rgbToHexNumber(glowColor), headAlpha);
         this.glowGraphics.drawCircle(head.x, head.y, headRadius);
@@ -292,7 +313,11 @@ export function createBundleClass(context) {
       this.participationWaveSample = null;
 
       this.graphics = new PIXI.Graphics();
-      agentsContainer.addChild(this.graphics);
+      const agentsContainer = getAgentsContainer();
+      if (agentsContainer) {
+        agentsContainer.addChild(this.graphics);
+      }
+      const agentTrailsContainer = getAgentTrailsContainer();
       this.trailRenderer = new SmoothTrailRenderer({
         container: agentTrailsContainer
       });
@@ -898,43 +923,75 @@ export function createBundleClass(context) {
             fillColor = strokeColor = Number.isFinite(parsed) ? parsed : 0x000000;
         }
 
-        // sensory ring when extended
+        // sensory ring when extended - smoother with gradient
         if (this.extendedSensing && this.alive) {
-            this.graphics.lineStyle({ width: 2, color: strokeColor, alpha: 0.3 });
+            this.graphics.lineStyle({ 
+                width: 1.5, 
+                color: strokeColor, 
+                alpha: 0.25,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
             this.graphics.drawCircle(0, 0, this.currentSensoryRange);
         }
 
         // Controller indicator - glowing circular border when using policy
         if (this.useController && this.controller && this.alive) {
-            const alpha = 0.6 + Math.sin(currentTick() * 0.2) * 0.3;
-            this.graphics.lineStyle({ width: 3, color: 0xffff00, alpha }); // yellow for controller
-            this.graphics.drawCircle(0, 0, this.size / 2 + 3);
+            const pulse = Math.sin(currentTick() * 0.15) * 0.5 + 0.5;
+            const alpha = 0.4 + pulse * 0.35;
+            this.graphics.lineStyle({ 
+                width: 2.5, 
+                color: 0xffff00, 
+                alpha,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
+            this.graphics.drawCircle(0, 0, this.size / 2 + 2.5);
         }
 
-        // frustration pulse when high
+        // frustration pulse when high - more subtle
         if (this.frustration >= 0.9 && this.alive) {
-            const alpha = 0.5 + Math.sin(currentTick() * 0.3) * 0.3;
-            this.graphics.lineStyle({ width: 3, color: 0xff0000, alpha });
-            this.graphics.drawCircle(0, 0, this.size);
+            const pulse = Math.sin(currentTick() * 0.25) * 0.5 + 0.5;
+            const alpha = 0.35 + pulse * 0.3;
+            this.graphics.lineStyle({ 
+                width: 2.5, 
+                color: 0xff3333, 
+                alpha,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
+            this.graphics.drawCircle(0, 0, this.size * 0.9);
         }
 
-        // body (with decay effects if dead) - draw as circle
-        const decayScale = this.alive ? 1.0 : (1.0 - this.decayProgress * 0.6); // Shrink to 40% of original
+        // body (with decay effects if dead) - draw as circle with glow
+        const decayScale = this.alive ? 1.0 : (1.0 - this.decayProgress * 0.6);
         const effectiveSize = this.size * decayScale;
         const radius = effectiveSize / 2;
 
         let alpha = 1.0;
         let bodyColor = fillColor;
+        let glowIntensity = 0.5;
 
         // Apply decay visual effects
         if (!this.alive && CONFIG.decay.enabled && CONFIG.decay.visualFade) {
             const fade = 1 - this.decayProgress;
-            alpha = fade * 0.7; // Max 70% opacity when fresh
+            alpha = fade * 0.6;
             bodyColor = 0x3C3228; // Dark brown decay color
+            glowIntensity = 0;
         }
 
+        // Draw outer glow for alive agents
+        if (this.alive && glowIntensity > 0) {
+            this.graphics.beginFill(strokeColor, glowIntensity * 0.2);
+            this.graphics.drawCircle(0, 0, radius * 1.3);
+            this.graphics.endFill();
+        }
+
+        // Main body with smooth edges
         this.graphics.beginFill(bodyColor, alpha);
-        this.graphics.lineStyle({ width: 2, color: strokeColor, alpha: 0.9 });
+        this.graphics.lineStyle({ 
+            width: this.alive ? 1.8 : 1.2, 
+            color: strokeColor, 
+            alpha: this.alive ? 0.85 : 0.4,
+            cap: PIXI.LINE_CAP.ROUND 
+        });
         this.graphics.drawCircle(0, 0, radius);
         this.graphics.endFill();
 

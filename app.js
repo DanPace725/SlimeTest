@@ -54,12 +54,17 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
         autoStart: false,
+        antialias: true,  // Enable anti-aliasing for smooth edges
+        powerPreference: 'high-performance'
     });
     const resourcesContainer = new PIXI.Container();
+    resourcesContainer.sortableChildren = true;
     pixiApp.stage.addChild(resourcesContainer);
     const agentTrailsContainer = new PIXI.Container();
+    agentTrailsContainer.sortableChildren = true;
     pixiApp.stage.addChild(agentTrailsContainer);
     const agentsContainer = new PIXI.Container();
+    agentsContainer.sortableChildren = true;
     pixiApp.stage.addChild(agentsContainer);
     window.pixiApp = pixiApp; // For debugging
     window.resourcesContainer = resourcesContainer; // For debugging
@@ -496,7 +501,7 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
         const a = getBundleById(L.aId);
         const b = getBundleById(L.bId);
         if (!a || !b) continue;
-        const depBase = CONFIG.depositPerSec * 0.01 * L.strength * dt; // Reduced from 0.1 to 0.01
+        const depBase = CONFIG.depositPerSec * 0.1 * L.strength * dt;
         for (let s = 0; s <= samples; s++) {
           const t = s / samples;
           const x = a.x + (b.x - a.x) * t;
@@ -773,7 +778,8 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       provokeBondedExploration,
       getAgentColor,
       getAgentColorRGB,
-      agentTrailsContainer,
+      getAgentTrailsContainer: () => agentTrailsContainer,
+      getAgentsContainer: () => agentsContainer,
       getWorld: () => World  // Callback pattern - World is referenced later when needed
     });
     const terrainHeightFn = typeof getTerrainHeight === 'function'
@@ -788,7 +794,8 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       getRule110Stepper: () => (typeof window !== 'undefined' ? window.rule110Stepper : null),
       getTerrainHeight: terrainHeightFn,
       getViewportWidth: () => innerWidth,
-      getViewportHeight: () => innerHeight
+      getViewportHeight: () => innerHeight,
+      getResourcesContainer: () => resourcesContainer
     });
   
     // ========================================================================
@@ -860,12 +867,29 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
     const originalWorldReset = World.reset.bind(World);
     World.reset = (...args) => {
       setWorldPaused(false);
+      
+      // Clear PixiJS containers to remove any lingering graphics
+      if (resourcesContainer) {
+        resourcesContainer.removeChildren();
+      }
+      if (agentsContainer) {
+        agentsContainer.removeChildren();
+      }
+      if (agentTrailsContainer) {
+        agentTrailsContainer.removeChildren();
+      }
+      
       const result = originalWorldReset(...args);
+      
       if (ParticipationManager && typeof ParticipationManager.resetState === 'function') {
         updateParticipationStatusUI();
       } else {
         resetParticipationEnergy({ reason: 'world-reset', clearFields: true });
       }
+      
+      // Force a render to clear any remaining artifacts
+      pixiApp.render();
+      
       return result;
     };
 
@@ -1523,7 +1547,7 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
         SignalField.step(dt);
       }
 
-      reinforceLinks(dt);
+      // reinforceLinks(dt); // Disabled: Link/Bond trail deposits (was grey)
       World.updateEcology(dt);
 
       if (CONFIG.scentGradient.consumable) {

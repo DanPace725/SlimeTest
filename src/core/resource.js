@@ -19,7 +19,8 @@ export function createResourceClass(context) {
     getRule110Stepper,
     getTerrainHeight,
     getViewportWidth = defaultViewportWidth,
-    getViewportHeight = defaultViewportHeight
+    getViewportHeight = defaultViewportHeight,
+    getResourcesContainer
   } = context;
 
   if (typeof getGlobalTick !== 'function') {
@@ -30,6 +31,9 @@ export function createResourceClass(context) {
   }
   if (typeof getCanvasHeight !== 'function') {
     throw new Error('getCanvasHeight dependency is required');
+  }
+  if (typeof getResourcesContainer !== 'function') {
+    throw new Error('getResourcesContainer dependency is required');
   }
 
   const currentTick = () => getGlobalTick();
@@ -75,7 +79,10 @@ export function createResourceClass(context) {
       this.tcData = null;
 
       this.graphics = new PIXI.Graphics();
-      resourcesContainer.addChild(this.graphics);
+      const container = getResourcesContainer();
+      if (container) {
+        container.addChild(this.graphics);
+      }
     }
 
     draw() {
@@ -91,36 +98,95 @@ export function createResourceClass(context) {
 
         // Color based on local fertility if plant ecology enabled
         const field = fertilityField();
-        let color = 0x00ff88; // Default color
+        let color = 0x00ff88; // Default color (bright green)
+        let fertility = 1.0;
+        
         if (CONFIG.plantEcology.enabled && field) {
-            const fertility = field.sampleAt(this.x, this.y);
-            const brightness = Math.floor(155 + fertility * 100);
-            color = (brightness << 8) | 88;
+            fertility = field.sampleAt(this.x, this.y);
+            // Smoother color gradation based on fertility
+            const greenIntensity = Math.floor(155 + fertility * 100);
+            const blueComponent = Math.floor(88 + fertility * 40);
+            color = (greenIntensity << 8) | blueComponent;
         }
 
-        this.graphics.beginFill(color);
+        // Multi-layer rendering for smooth, glowing appearance
+        
+        // Outer glow layer (largest)
+        const glowRadius = this.r * 1.6;
+        const glowColor = 0x00ff88;
+        const glowAlpha = 0.08 + fertility * 0.06;
+        this.graphics.beginFill(glowColor, glowAlpha);
+        this.graphics.drawCircle(0, 0, glowRadius);
+        this.graphics.endFill();
+
+        // Middle glow layer
+        const midGlowRadius = this.r * 1.25;
+        const midGlowAlpha = 0.15 + fertility * 0.1;
+        this.graphics.beginFill(color, midGlowAlpha);
+        this.graphics.drawCircle(0, 0, midGlowRadius);
+        this.graphics.endFill();
+
+        // Main body with smooth anti-aliased edge
+        const bodyAlpha = 0.9;
+        this.graphics.beginFill(color, bodyAlpha);
+        this.graphics.lineStyle({ 
+            width: 1.5, 
+            color: 0xffffff, 
+            alpha: 0.3,
+            cap: PIXI.LINE_CAP.ROUND 
+        });
         this.graphics.drawCircle(0, 0, this.r);
+        this.graphics.endFill();
+
+        // Inner highlight for depth
+        const highlightColor = 0xffffff;
+        const highlightRadius = this.r * 0.45;
+        const highlightAlpha = 0.4;
+        this.graphics.beginFill(highlightColor, highlightAlpha);
+        this.graphics.drawCircle(this.r * -0.15, this.r * -0.15, highlightRadius);
         this.graphics.endFill();
 
         // Optional: Show young resources with a glow (recently sprouted)
         if (CONFIG.plantEcology.enabled && this.age < 60) {
-            const alpha = 1 - this.age / 60;
-            this.graphics.lineStyle(2, 0x00ff88, alpha);
-            this.graphics.drawCircle(0, 0, this.r + 4);
+            const spawnGlowAlpha = (1 - this.age / 60) * 0.5;
+            const spawnGlowRadius = this.r + 4 + (1 - this.age / 60) * 3;
+            this.graphics.lineStyle({ 
+                width: 2.5, 
+                color: 0x88ffcc, 
+                alpha: spawnGlowAlpha,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
+            this.graphics.drawCircle(0, 0, spawnGlowRadius);
         }
 
-        // Subtle scent gradient indicator
+        // Subtle scent gradient indicator - smoother animation
         if (CONFIG.scentGradient.enabled && CONFIG.scentGradient.showSubtleIndicator) {
-            const pulse = (Math.sin(currentTick() * 0.05) + 1) / 2; // 0..1
-            const alpha = 0.1 + pulse * 0.2;
+            const tick = currentTick();
+            const pulse = Math.sin(tick * 0.04) * 0.5 + 0.5; // Slower, smoother pulse
+            const baseAlpha = 0.08;
+            const pulseAlpha = baseAlpha + pulse * 0.12;
 
-            this.graphics.lineStyle(1, 0x00ff88, alpha);
+            // Outer ring with smooth fade
+            const ring1Radius = this.r + 12 + pulse * 8;
+            this.graphics.lineStyle({ 
+                width: 1.2, 
+                color: color, 
+                alpha: pulseAlpha * 0.7,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
+            this.graphics.drawCircle(0, 0, ring1Radius);
 
-            // Ring 1
-            this.graphics.drawCircle(0, 0, this.r + 10 + pulse * 10);
-
-            // Ring 2
-            this.graphics.drawCircle(0, 0, this.r + 30 + pulse * 20);
+            // Inner ring with offset phase
+            const pulse2 = Math.sin(tick * 0.04 + Math.PI * 0.5) * 0.5 + 0.5;
+            const ring2Radius = this.r + 25 + pulse2 * 12;
+            const ring2Alpha = (baseAlpha + pulse2 * 0.1) * 0.5;
+            this.graphics.lineStyle({ 
+                width: 0.8, 
+                color: glowColor, 
+                alpha: ring2Alpha,
+                cap: PIXI.LINE_CAP.ROUND 
+            });
+            this.graphics.drawCircle(0, 0, ring2Radius);
         }
     }
 
