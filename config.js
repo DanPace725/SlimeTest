@@ -418,7 +418,7 @@ export const CONFIG = {
   // === Learning System ===
   learning: {
     // Observation vector settings
-    observationDims: 23,          // total observation vector size (was 15, now includes scent+density)
+    observationDims: 29,          // total observation vector size (includes χ, motion, walls, resource, trails, scent, density, signals)
     normalizeObs: true,           // normalize observations to [-1, 1]
     
     // Action space

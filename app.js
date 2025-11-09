@@ -680,7 +680,7 @@ import {
     }
   
     // ---------- Learning System ----------
-    const learner = new CEMLearner(23, 3); // 23 obs dims (was 15, now includes scent+density), 3 action dims
+    const learner = new CEMLearner(CONFIG.learning.observationDims, 3); // observation dims from config, 3 action dims
     const episodeManager = new EpisodeManager();
     
     // ---------- Baseline Metrics Tracker ----------
