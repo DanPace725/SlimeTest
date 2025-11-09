@@ -16,6 +16,18 @@ import { clamp, mix, smoothstep } from '../utils/math.js';
 import { SIGNAL_CHANNELS, SIGNAL_MEMORY_LENGTH, SIGNAL_DISTRESS_NOISE_GAIN, SIGNAL_RESOURCE_PULL_GAIN, SIGNAL_BOND_CONFLICT_DAMP } from '../../app/constants.js';
 
 
+function rgb2hex(r, g, b) {
+  return ((r & 0xff) << 16) + ((g & 0xff) << 8) + (b & 0xff);
+}
+
+function rgbToHexNumber({ r, g, b }) {
+  return rgb2hex(
+    Math.round(Math.max(0, Math.min(255, r))),
+    Math.round(Math.max(0, Math.min(255, g))),
+    Math.round(Math.max(0, Math.min(255, b)))
+  );
+}
+
 export function createBundleClass(context) {
   const {
     Trail,
@@ -36,7 +48,7 @@ export function createBundleClass(context) {
     getAgentColorRGB,
     getAgentTrailsContainer,
     getAgentsContainer,
-    getWorld
+    getWorld  // Callback pattern - World is referenced later when needed
   } = context;
 
   if (!Trail) throw new Error('Trail dependency is required');
@@ -63,8 +75,6 @@ export function createBundleClass(context) {
   const width = () => getCanvasWidth();
   const height = () => getCanvasHeight();
   const worldRef = () => getWorld();
-
-  const rgbToHexNumber = ({ r, g, b }) => PIXI.utils.rgb2hex([r / 255, g / 255, b / 255]);
 
   const lerpColor = (a, b, t) => ({
     r: Math.round(mix(a.r, b.r, t)),
@@ -304,12 +314,22 @@ export function createBundleClass(context) {
       // Participation wave context sampled from ParticipationManager
       this.participationWaveSample = null;
 
+      // Initialize PIXI graphics with safety checks
+      if (!PIXI || !PIXI.Graphics) {
+        throw new Error('PIXI not properly initialized - Graphics not available');
+      }
+      
       this.graphics = new PIXI.Graphics();
       const agentsContainer = getAgentsContainer();
-      if (agentsContainer) {
-        agentsContainer.addChild(this.graphics);
+      if (!agentsContainer) {
+        throw new Error('Agents container not available');
       }
+      agentsContainer.addChild(this.graphics);
+
       const agentTrailsContainer = getAgentTrailsContainer();
+      if (!agentTrailsContainer) {
+        throw new Error('Trail container not available');
+      }
       this.trailRenderer = new SmoothTrailRenderer({
         container: agentTrailsContainer
       });
