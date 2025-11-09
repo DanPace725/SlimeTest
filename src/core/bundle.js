@@ -13,16 +13,8 @@ import { computeMovement, evaluateResidualEffects } from '../systems/movement.js
 import { createMitosisSystem } from '../systems/mitosis.js';
 import { createDecaySystem } from '../systems/decay.js';
 import { clamp, mix, smoothstep } from '../utils/math.js';
+import { SIGNAL_CHANNELS, SIGNAL_MEMORY_LENGTH, SIGNAL_DISTRESS_NOISE_GAIN, SIGNAL_RESOURCE_PULL_GAIN, SIGNAL_BOND_CONFLICT_DAMP } from '../../app/constants.js';
 
-const SIGNAL_CHANNELS = {
-  resource: 0,
-  distress: 1,
-  bond: 2
-};
-const SIGNAL_MEMORY_LENGTH = Math.max(3, CONFIG.signal?.memoryLength || 12);
-const SIGNAL_DISTRESS_NOISE_GAIN = 1.5;
-const SIGNAL_RESOURCE_PULL_GAIN = 2.5;
-const SIGNAL_BOND_CONFLICT_DAMP = 0.7;
 
 export function createBundleClass(context) {
   const {

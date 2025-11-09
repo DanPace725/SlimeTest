@@ -41,6 +41,13 @@ import { startSimulation } from './src/core/simulationLoop.js';
 import { createTrainingModule } from './src/core/training.js';
 import { collectResource } from './src/systems/resourceSystem.js';
 import { MetricsTracker } from './src/core/metricsTracker.js';
+import { 
+  SIGNAL_CHANNELS,
+  SIGNAL_MEMORY_LENGTH,
+  SIGNAL_DISTRESS_NOISE_GAIN,
+  SIGNAL_RESOURCE_PULL_GAIN, 
+  SIGNAL_BOND_CONFLICT_DAMP
+} from './app/constants.js';
 
 (() => {
     const canvas = document.getElementById("view");
@@ -133,13 +140,6 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
 
     // ---------- Helpers ----------
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-    const SIGNAL_CHANNELS = {
-      resource: 0,
-      distress: 1,
-      bond: 2
-    };
-    const SIGNAL_MEMORY_LENGTH = Math.max(3, CONFIG.signal?.memoryLength || 12);
-    const SIGNAL_DISTRESS_NOISE_GAIN = 1.5;
 
     // ---------- Mouse Tracking for Resource Tooltips ----------
     const mousePos = { x: 0, y: 0, hoveredResource: null };
@@ -284,8 +284,6 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       
       ctx.restore();
     }
-    const SIGNAL_RESOURCE_PULL_GAIN = 2.5;  // Increased from 0.65 - stronger signal following
-    const SIGNAL_BOND_CONFLICT_DAMP = 0.7;
     const normalizeRewardSignal = (rewardChi) => {
       if (!Number.isFinite(rewardChi)) return 0;
       const base = Math.max(CONFIG.rewardChi || rewardChi || 0, 1e-6);
