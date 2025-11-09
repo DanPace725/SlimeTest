@@ -19,11 +19,12 @@ Essence Engine simulates resource-seeking agents (called "bundles") in a dynamic
 ## Getting Started
 
 1. Clone this repository
-2. Open `index.html` in a modern web browser
-3. The simulation will start automatically
-4. Use keyboard controls (see below) to interact with the simulation
+2. Install dependencies: `npm install`
+3. Start the development server: `npm start`
+4. The simulation will open automatically in your browser
+5. Use keyboard controls (see below) to interact with the simulation
 
-No build process or dependencies required - it runs entirely in the browser!
+For production builds, run `npm run build` to create an optimized bundle in the `dist/` directory.
 
 ## Controls
 
@@ -84,9 +85,35 @@ The training system runs multiple agents simultaneously, each testing the same p
 ```
 src/
   core/         # Core simulation systems (world state, training, simulation loop)
-  systems/      # Individual behavior systems (movement, sensing, metabolism, etc.)
+                # - world.js: World assembly and state management
+                # - bundle.js: Agent class factory
+                # - resource.js: Resource class factory
+                # - simulationLoop.js: Deterministic tick orchestration
+                # - training.js: Training module and learner integration
+                # - metricsTracker.js: Performance metrics collection
+                # - sensing.js: Sensing system implementation
+                # - configOptimizer.js: Configuration optimization utilities
+  
+  systems/      # Individual behavior systems (pure functions)
+                # - movement.js: Agent movement mechanics
+                # - metabolism.js: Energy consumption
+                # - mitosis.js: Agent reproduction
+                # - decay.js: Decay mechanics
+                # - participation.js: Interactive guidance system
+                # - resourceSystem.js: Resource collection logic
+                # - controllerAction.js: Controller action processing
+                # - steering.js: Steering behaviors
+  
   ui/           # Browser interface and canvas rendering
+                # - canvasManager.js: DPR-aware canvas sizing
+                # - inputManager.js: Keyboard and input handling
+  
   utils/        # Shared utilities and math helpers
+                # - math.js: Math utilities (clamp, etc.)
+                # - color.js: Color conversion utilities
+
+app.js          # Main entry point (imports from src/ modules)
+config.js       # Global configuration and tuning parameters
 
 docs/           # Comprehensive guides and architecture documentation
 tc/             # Turing machine implementations (experimental)

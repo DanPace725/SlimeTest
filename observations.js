@@ -3,6 +3,7 @@
 
 import { CONFIG } from './config.js';
 import { getScentGradient, getFoodDensitySensing } from './scentGradient.js';
+import { SIGNAL_CHANNELS } from './app/constants.js';
 
 /**
  * Build observation vector for a bundle

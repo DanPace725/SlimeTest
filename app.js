@@ -4,6 +4,8 @@
 // [T]=trail on/off [X]=clear trail [F]=diffusion on/off | [1-4]=toggle individual agents | [V]=toggle all | [L]=training UI
 // [H]=agent dashboard | [U]=cycle HUD (full/minimal/hidden) | [K]=toggle hotkey strip | [O]=config panel
 
+import { PIXI } from './lib/pixi.js';
+
 // ========================================================================
 // 📋 INITIALIZATION ORDER REQUIREMENTS FOR AI AGENTS
 // ========================================================================
@@ -40,6 +42,13 @@ import { startSimulation } from './src/core/simulationLoop.js';
 import { createTrainingModule } from './src/core/training.js';
 import { collectResource } from './src/systems/resourceSystem.js';
 import { MetricsTracker } from './src/core/metricsTracker.js';
+import { 
+  SIGNAL_CHANNELS,
+  SIGNAL_MEMORY_LENGTH,
+  SIGNAL_DISTRESS_NOISE_GAIN,
+  SIGNAL_RESOURCE_PULL_GAIN, 
+  SIGNAL_BOND_CONFLICT_DAMP
+} from './app/constants.js';
 
 const getTerrainHeight = null;
 const loadedPolicyInfo = null;
@@ -135,11 +144,6 @@ const loadedPolicyInfo = null;
 
     // ---------- Helpers ----------
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-    const SIGNAL_CHANNELS = {
-      resource: 0,
-      distress: 1,
-      bond: 2
-    };
 
     // ---------- Mouse Tracking for Resource Tooltips ----------
     const mousePos = { x: 0, y: 0, hoveredResource: null };
@@ -153,7 +157,8 @@ const loadedPolicyInfo = null;
       mousePos.hoveredResource = null;
       const hoverRadius = 30; // Detection radius for hover
       
-      for (const res of World.resources) {
+      const resources = World?.resources ?? [];
+      for (const res of resources) {
         const dx = mousePos.x - res.x;
         const dy = mousePos.y - res.y;
         const dist = Math.hypot(dx, dy);
@@ -645,7 +650,7 @@ const loadedPolicyInfo = null;
     }
   
     // ---------- Learning System ----------
-    const learner = new CEMLearner(23, 3); // 23 obs dims (was 15, now includes scent+density), 3 action dims
+    const learner = new CEMLearner(CONFIG.learning.observationDims, 3); // observation dims from config, 3 action dims
     const episodeManager = new EpisodeManager();
     
     // ---------- Baseline Metrics Tracker ----------
@@ -900,6 +905,7 @@ const loadedPolicyInfo = null;
     // Note: Bundle and Resource use getWorld: () => World callback pattern
     // This allows them to be created BEFORE World while still accessing it later
     const Bundle = createBundleClass({
+      PIXI,
       Trail,
       getGlobalTick: () => globalTick,
       getCanvasWidth: () => canvasWidth,
@@ -925,6 +931,7 @@ const loadedPolicyInfo = null;
       : undefined;
 
     const Resource = createResourceClass({
+      PIXI,
       getGlobalTick: () => globalTick,
       getCanvasWidth: () => canvasWidth,
       getCanvasHeight: () => canvasHeight,

@@ -4,7 +4,7 @@ This document provides a technical breakdown of the core mechanics of the Essenc
 
 ## Core Simulation Loop
 
-The main simulation loop is located in the `loop` function within `app.js`. It orchestrates the entire simulation, updating the state of the world and rendering it to the canvas on each frame. The loop is driven by `requestAnimationFrame` for smooth animation.
+The main simulation loop is orchestrated by `startSimulation` from `src/core/simulationLoop.js`, which is called from `app.js`. The loop uses a phase-based architecture for deterministic updates, working in both play and training modes. The loop is driven by `requestAnimationFrame` for smooth animation.
 
 Here is a high-level overview of the operations performed in each tick of the simulation (when not paused):
 
@@ -28,7 +28,7 @@ Here is a high-level overview of the operations performed in each tick of the si
 
 ## Agent Mechanics
 
-The core logic for the agents is defined in the `Bundle` class in `app.js`. Each agent is an autonomous entity with its own internal state and a set of behaviors that govern its actions.
+The core logic for the agents is defined in the `Bundle` class, which is created via the `createBundleClass` factory function in `src/core/bundle.js`. Each agent is an autonomous entity with its own internal state and a set of behaviors that govern its actions. The Bundle class is instantiated in `app.js` after the World is created.
 
 ### Chi (χ) - The Energy System
 
@@ -84,7 +84,7 @@ Hunger is a biological drive (0 to 1) that builds up over time and represents th
 
 ## The Trail System
 
-The trail system is a core component of the simulation, enabling indirect communication and coordination between agents. It's managed by the `Trail` object in `app.js` and operates on a downsampled grid for performance.
+The trail system is a core component of the simulation, enabling indirect communication and coordination between agents. It's managed by the `Trail` object defined in `app.js` (currently still in the main file, but may be migrated to `src/core/` in future refactoring). The trail system operates on a downsampled grid for performance.
 
 ### Trail Deposition
 

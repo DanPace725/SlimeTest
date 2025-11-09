@@ -9,6 +9,7 @@ export function createResourceClass(context) {
   }
 
   const {
+    PIXI,
     getGlobalTick,
     getCanvasWidth,
     getCanvasHeight,
@@ -61,6 +62,11 @@ export function createResourceClass(context) {
       this.vitality = 1.0; // Resource health (1.0 = full, 0 = depleted)
       this.depleted = false; // Whether resource is too depleted to collect
       this.tcData = null;
+
+      // Initialize PIXI graphics with safety checks
+      if (!PIXI || !PIXI.Graphics) {
+        throw new Error('PIXI not properly initialized - Graphics not available');
+      }
 
       this.graphics = new PIXI.Graphics();
       const container = getResourcesContainer();
