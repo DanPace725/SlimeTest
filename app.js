@@ -927,6 +927,7 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       getSignalField: () => SignalField,
       getTrainingUI: () => window.trainingUI,
       getParticipationManager: () => ParticipationManager,
+      getTrainingModule: () => trainingModule,
       CONFIG
     });
 
@@ -952,7 +953,8 @@ import { MetricsTracker } from './src/core/metricsTracker.js';
       getAgentColorRGB,
       getAgentTrailsContainer: () => agentTrailsContainer,
       getAgentsContainer: () => agentsContainer,
-      getWorld: () => World  // Callback pattern - World is referenced later when needed
+      getWorld: () => World,  // Callback pattern - World is referenced later when needed
+      getTrainingModule: () => trainingModule  // For adaptive heuristics access
     });
     const terrainHeightFn = typeof getTerrainHeight === 'function'
       ? (x, y) => getTerrainHeight(x, y)

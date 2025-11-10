@@ -44,7 +44,8 @@ export function createBundleClass(context) {
     getAgentColorRGB,
     getAgentTrailsContainer,
     getAgentsContainer,
-    getWorld
+    getWorld,  // Callback pattern - World is referenced later when needed
+    getTrainingModule  // For adaptive heuristics access
   } = context;
 
   if (!Trail) throw new Error('Trail dependency is required');
@@ -66,6 +67,7 @@ export function createBundleClass(context) {
   if (typeof getAgentTrailsContainer !== 'function') throw new Error('getAgentTrailsContainer dependency is required');
   if (typeof getAgentsContainer !== 'function') throw new Error('getAgentsContainer dependency is required');
   if (typeof getWorld !== 'function') throw new Error('getWorld dependency is required');
+  if (typeof getTrainingModule !== 'function') throw new Error('getTrainingModule dependency is required');
 
   const currentTick = () => getGlobalTick();
   const width = () => getCanvasWidth();
@@ -355,9 +357,13 @@ export function createBundleClass(context) {
       const distressWeight = getSignalWeight('distress');
       const bondWeight = getSignalWeight('bond');
 
+      // Get adaptive heuristics for parameter modulation
+      const trainingModule = typeof getTrainingModule === 'function' ? getTrainingModule() : null;
+      const adaptiveHeuristics = trainingModule?.getAdaptiveHeuristics?.();
+
       // (1) Wall avoidance - repulsion from ALL nearby walls (handles corners!)
       const wallMargin = CONFIG.aiWallAvoidMargin;
-      const wallStrength = CONFIG.aiWallAvoidStrength;
+      const wallStrength = adaptiveHeuristics?.getParam('wallAvoidStrength') ?? CONFIG.aiWallAvoidStrength;
 
       const canvasW = width();
       const canvasH = height();
@@ -391,7 +397,7 @@ export function createBundleClass(context) {
         const dist = Math.hypot(tx, ty);
         if (dist > 0 && dist <= this.currentSensoryRange) {
           // Use configurable attraction strength to overpower competing forces
-          const baseAttraction = CONFIG.aiResourceAttractionStrength || 1.0;
+          const baseAttraction = adaptiveHeuristics?.getParam('resourceAttractionStrength') ?? CONFIG.aiResourceAttractionStrength || 1.0;
           
           // Optional: Scale attraction stronger when closer (1x at max range, up to 2x when very close)
           const distanceFactor = CONFIG.aiResourceAttractionScaleWithDistance 
@@ -407,8 +413,8 @@ export function createBundleClass(context) {
       }
 
       // (3) trail following (reduced near walls and when close to resources)
-      let trailStrength = resourceVisible ? CONFIG.aiTrailFollowingNear
-                                           : CONFIG.aiTrailFollowingFar;
+      let trailStrength = resourceVisible ? (adaptiveHeuristics?.getParam('trailFollowingNear') ?? CONFIG.aiTrailFollowingNear)
+                                           : (adaptiveHeuristics?.getParam('trailFollowingFar') ?? CONFIG.aiTrailFollowingFar);
 
       // Reduce trail following when very close to resource (direct pursuit mode)
       if (resource && resourceVisible) {
@@ -456,7 +462,8 @@ export function createBundleClass(context) {
         if (grad && (grad.dx !== 0 || grad.dy !== 0)) {
           // Scale pull strength with hunger - stronger when more desperate
           const hungerScale = smoothstep(CONFIG.hungerThresholdLow, 1.0, this.hunger);
-          const pull = resourceBias * SIGNAL_RESOURCE_PULL_GAIN * resourceWeight * (0.3 + hungerScale * 0.7);
+          const signalResourceGain = adaptiveHeuristics?.getParam('signalResourceGain') ?? SIGNAL_RESOURCE_PULL_GAIN;
+          const pull = resourceBias * signalResourceGain * resourceWeight * (0.3 + hungerScale * 0.7);
           if (pull > 0) {
             dx += grad.dx * pull;
             dy += grad.dy * pull;
@@ -516,7 +523,8 @@ export function createBundleClass(context) {
       // Hunger amplifies exploration - hungry agents explore more desperately
       const hungerAmp = 1 + (CONFIG.hungerExplorationAmp - 1) * h;
       const bereaveMul = 1 + (this.bereavementBoostTicks > 0 ? (CONFIG.bondLoss?.onDeathExploreBoost ?? 0) : 0);
-      const distressGain = SIGNAL_DISTRESS_NOISE_GAIN * distressWeight;
+      const signalDistressGain = adaptiveHeuristics?.getParam('signalDistressGain') ?? SIGNAL_DISTRESS_NOISE_GAIN;
+      const distressGain = signalDistressGain * distressWeight;
       const distressMul = 1 + distressBias * distressGain;
       if (distressBias > 1e-3 && distressGain !== 0) {
         SignalResponseAnalytics.logResponse('distress', currentTick(), this.id, {

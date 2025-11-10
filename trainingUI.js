@@ -119,7 +119,28 @@ export class TrainingUI {
       <button id="export-baseline" style="margin: 5px 0; width: 100%;">📊 Export Baseline Metrics</button>
     `;
     this.panel.appendChild(baselineSection);
-    
+
+    // Adaptive Heuristics section
+    const adaptiveSection = this.createSection('Adaptive Heuristics');
+    adaptiveSection.innerHTML += `
+      <div style="font-size: 10px; color: #aaa; margin-bottom: 8px;">
+        Real-time learning that modulates heuristic parameters based on performance.
+      </div>
+      <button id="toggle-adaptive" style="margin: 5px 0; width: 100%;">🎯 Toggle Adaptive Learning</button>
+      <div id="adaptive-status" style="font-size: 10px; color: #888; margin: 5px 0; min-height: 14px;">
+        Disabled
+      </div>
+      <div id="adaptive-params" style="font-size: 9px; color: #ccc; margin: 5px 0; max-height: 120px; overflow-y: auto;">
+        <div>Wall Avoid: <span id="param-wall">1.00</span></div>
+        <div>Resource Seek: <span id="param-resource">1.00</span></div>
+        <div>Trail Follow: <span id="param-trail">1.00</span></div>
+        <div>Signal Gain: <span id="param-signal">1.00</span></div>
+        <div>Avg Reward: <span id="param-reward">0.00</span></div>
+      </div>
+      <button id="reset-adaptive" style="margin: 5px 0; width: 100%;">🔄 Reset Learning</button>
+    `;
+    this.panel.appendChild(adaptiveSection);
+
     // Config Optimization section
     const configOptSection = this.createSection('Config Optimization');
     configOptSection.innerHTML += `
@@ -315,8 +336,46 @@ export class TrainingUI {
         this.callbacks.onTestConfig();
       }
     });
+
+    // Adaptive Heuristics event handlers
+    document.getElementById('toggle-adaptive')?.addEventListener('click', () => {
+      if (this.callbacks.onToggleAdaptive) {
+        this.callbacks.onToggleAdaptive();
+      }
+    });
+
+    document.getElementById('reset-adaptive')?.addEventListener('click', () => {
+      if (confirm('Reset adaptive heuristics learning?')) {
+        if (this.callbacks.onResetAdaptive) {
+          this.callbacks.onResetAdaptive();
+        }
+      }
+    });
   }
-  
+
+  // Update adaptive heuristics status and parameters
+  updateAdaptiveStatus(stats) {
+    const statusEl = document.getElementById('adaptive-status');
+
+    if (statusEl && stats) {
+      statusEl.textContent = stats.isActive ? '✅ ACTIVE - Learning' : '⏸️ Disabled';
+      statusEl.style.color = stats.isActive ? '#00ff88' : '#888';
+
+      // Update parameter displays
+      const wallEl = document.getElementById('param-wall');
+      const resourceEl = document.getElementById('param-resource');
+      const trailEl = document.getElementById('param-trail');
+      const signalEl = document.getElementById('param-signal');
+      const rewardEl = document.getElementById('param-reward');
+
+      if (wallEl) wallEl.textContent = stats.currentMultipliers?.wallAvoidStrength?.toFixed(2) || '1.00';
+      if (resourceEl) resourceEl.textContent = stats.currentMultipliers?.resourceAttractionStrength?.toFixed(2) || '1.00';
+      if (trailEl) trailEl.textContent = stats.currentMultipliers?.trailFollowingFar?.toFixed(2) || '1.00';
+      if (signalEl) signalEl.textContent = stats.currentMultipliers?.signalResourceGain?.toFixed(2) || '1.00';
+      if (rewardEl) rewardEl.textContent = stats.avgReward?.toFixed(2) || '0.00';
+    }
+  }
+
   // Update baseline collection status
   updateBaselineStatus(isCollecting, snapshotCount = 0) {
     const statusEl = document.getElementById('baseline-status');

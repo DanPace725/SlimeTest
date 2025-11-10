@@ -16,6 +16,7 @@ export function initializeInputManager({
   getSignalField,
   getTrainingUI,
   getParticipationManager,
+  getTrainingModule,
   CONFIG
 }) {
   const held = new Set();
@@ -236,6 +237,15 @@ export function initializeInputManager({
             URL.revokeObjectURL(url);
             console.log(`📸 Screenshot saved: ${filename}`);
           }, 'image/png');
+        }
+        break;
+      case 'KeyY':
+        if (typeof getTrainingModule === 'function') {
+          const trainingModule = getTrainingModule();
+          if (trainingModule && typeof trainingModule.toggleAdaptiveHeuristics === 'function') {
+            const isActive = trainingModule.toggleAdaptiveHeuristics();
+            console.log(`🧠 Adaptive Heuristics ${isActive ? 'ENABLED' : 'DISABLED'} [Y]`);
+          }
         }
         break;
       default:
