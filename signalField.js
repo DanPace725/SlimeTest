@@ -156,6 +156,20 @@ export const SignalField = {
     }
   },
 
+  applySnapshot(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.snapshots)) return;
+    try {
+      for (let c = 0; c < snapshot.snapshots.length; c++) {
+        const arr = snapshot.snapshots[c];
+        if (!arr || !this.buffers[c]) continue;
+        this.buffers[c].set(new Float32Array(arr));
+        if (this.snapshot && this.snapshot[c]) this.snapshot[c].set(this.buffers[c]);
+      }
+    } catch (err) {
+      console.warn('Failed to apply signalField snapshot:', err);
+    }
+  },
+
   step(dt) {
     if (!CONFIG.signal.enabled) return;
     if (!this.buffers.length || !Number.isFinite(dt)) return;
