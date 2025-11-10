@@ -3,23 +3,19 @@ import { getResourceSpawnLocation } from '../../plantEcology.js';
 import { getRule110SpawnInfo } from '../../tcResourceBridge.js';
 import { TcRandom } from '../../tcStorage.js';
 
-const defaultViewportWidth = () => (typeof innerWidth === 'number' ? innerWidth : 0);
-const defaultViewportHeight = () => (typeof innerHeight === 'number' ? innerHeight : 0);
-
 export function createResourceClass(context) {
   if (!context || typeof context !== 'object') {
     throw new Error('context is required to create Resource class');
   }
 
   const {
+    PIXI,
     getGlobalTick,
     getCanvasWidth,
     getCanvasHeight,
     getFertilityField,
     getRule110Stepper,
     getTerrainHeight,
-    getViewportWidth = defaultViewportWidth,
-    getViewportHeight = defaultViewportHeight,
     getResourcesContainer
   } = context;
 
@@ -50,20 +46,6 @@ export function createResourceClass(context) {
     return null;
   };
   const terrainHeight = typeof getTerrainHeight === 'function' ? getTerrainHeight : null;
-  const viewportWidth = () => {
-    try {
-      return getViewportWidth();
-    } catch (err) {
-      return defaultViewportWidth();
-    }
-  };
-  const viewportHeight = () => {
-    try {
-      return getViewportHeight();
-    } catch (err) {
-      return defaultViewportHeight();
-    }
-  };
 
   return class Resource {
     constructor(x, y, r) {
@@ -80,6 +62,11 @@ export function createResourceClass(context) {
       this.vitality = 1.0; // Resource health (1.0 = full, 0 = depleted)
       this.depleted = false; // Whether resource is too depleted to collect
       this.tcData = null;
+
+      // Initialize PIXI graphics with safety checks
+      if (!PIXI || !PIXI.Graphics) {
+        throw new Error('PIXI not properly initialized - Graphics not available');
+      }
 
       this.graphics = new PIXI.Graphics();
       const container = getResourcesContainer();
@@ -273,7 +260,7 @@ export function createResourceClass(context) {
       }
     }
 
-    update(dt) {
+    update(_dt) {
       this.age++;
       this.updateCooldown();
     }

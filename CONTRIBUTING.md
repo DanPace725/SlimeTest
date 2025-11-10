@@ -2,6 +2,16 @@
 
 This guide captures the agreed upon coding conventions, the refactored module layout, and the test suite expectations for the modular Essence Engine stack. Use it as the checklist before opening a pull request or shipping new systems.
 
+## Development Setup
+
+The project uses Vite as the build tool and development server. To get started:
+
+1. Install dependencies: `npm install`
+2. Start the dev server: `npm start` (runs `vite`, opens browser automatically)
+3. Build for production: `npm run build` (outputs to `dist/`)
+
+The main entry point is `app.js`, which imports from modular `src/` packages. The `index.html` file loads `app.js` as an ES module via the Vite dev server.
+
 ## Architecture at a Glance
 
 | Area | Purpose | Key Entry Points |

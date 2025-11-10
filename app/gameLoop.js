@@ -1,5 +1,7 @@
 // app/gameLoop.js - Main simulation loop and phase management
 
+import { Resource } from '../src/core/resource.js';
+
 export class GameLoop {
     constructor(world, systems, CONFIG) {
         this.world = world;

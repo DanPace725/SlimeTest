@@ -30,9 +30,14 @@ See the [architecture directory](architecture/README.md) for a complete list of 
 
 ## Architecture Snapshot
 
-* **World & Systems:** `src/core/world.js` assembles bundles, resources, ecology regulators, and adaptive reward tracking into a cohesive world object that other systems consume.
-* **Simulation Loop:** `src/core/simulationLoop.js` exposes reusable tick orchestration so play and training modes share a deterministic sequence of capture, update, and render phases.
-* **Training Orchestrator:** `src/core/training.js` coordinates synchronized multi-agent episodes, hooks in telemetry capture, and feeds aggregate returns back to the learner and UI.
+The codebase has been refactored into a modular structure:
+
+* **World & Systems:** `src/core/world.js` assembles bundles, resources, ecology regulators, and adaptive reward tracking into a cohesive world object that other systems consume. Bundle and Resource classes are created via factories (`createBundleClass`, `createResourceClass`) to allow dependency injection.
+* **Simulation Loop:** `src/core/simulationLoop.js` exposes reusable tick orchestration so play and training modes share a deterministic sequence of capture, update, and render phases. The main `app.js` imports and uses `startSimulation` from this module.
+* **Training Orchestrator:** `src/core/training.js` coordinates synchronized multi-agent episodes, hooks in telemetry capture, and feeds aggregate returns back to the learner and UI. Created via `createTrainingModule` factory function.
+* **System Modules:** Pure function modules in `src/systems/` handle individual mechanics (movement, metabolism, resource collection, etc.) without side effects, making them easily testable.
+* **UI Bridge:** Browser-specific code (canvas management, input handling) lives in `src/ui/` to keep DOM logic separate from core simulation systems.
+* **Entry Point:** `app.js` serves as the main entry point, importing from modular `src/` packages while maintaining backward compatibility through global exports.
 
 ## Legacy & Archive
 
