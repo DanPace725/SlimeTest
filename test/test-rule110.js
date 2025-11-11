@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { TcScheduler, TcStorage } from '../tcStorage.js';
+import { TcScheduler, TcStorage } from '../src/runtime/tcStorage.js';
 import { registerRule110Stepper } from '../tc/tcRule110.js';
 
 const __filename = fileURLToPath(import.meta.url);

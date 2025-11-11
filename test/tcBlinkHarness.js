@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TcChunkStorage, TcScheduler, createHeadlessEmitter } from '../tcStorage.js';
+import { TcChunkStorage, TcScheduler, createHeadlessEmitter } from '../src/runtime/tcStorage.js';
 
 function hashLines(lines) {
   const hash = createHash('sha256');

@@ -13,7 +13,9 @@ The **casual universality flex** profile packages a deterministic Rule 110 harne
 
 ### Profile wiring
 
-The `casual_universality_flex` profile flips `tc.enabled` to `true`, pins the seed/tick salt, and raises `updateCadence` to `1` so Rule 110 runs every tick alongside the organism sim. It registers two schemas: `tc.rule110.snapshot` stays active while the `tc.turing_tape.snapshot` schema remains documented but disabled, which lets us stage tape experiments without touching the manifest pipeline.  When the profile is loaded through the config panel (press **L** to open the training UI and choose the preset loader), `applyTcConfig` replays the TC configuration and resizes caches as needed.
+The `casual_universality_flex` profile flips `tc.enabled` to `true`, pins the seed/tick salt, raises `updateCadence` to `1`, and now writes the `tc.rule110.*` block that the config panel surfaces (width, initializer, phase, and random seed/density). That keeps the UI, exported snapshots, and the JSON profile all in sync. It also registers the TC overlay defaults so the HUD panel lights up as soon as you load the preset.
+
+Behind the scenes, loading the profile through the config panel (press **O** to open it and pick the preset) calls `applyTcConfig`, `loadTapeMachinesFromConfig`, and the new `applyTcRuntimeConfig` helper. That helper instantiates `registerRule110Stepper`, publishes the resulting stepper on `window.rule110Stepper` (so the resource overlay and console helpers can reach it), and stores the latest `tc.rule110.snapshot` payload in `TcStorage` for schema validation.
 
 ### Scheduler, storage, and steppers
 
@@ -36,9 +38,10 @@ Two Mermaid diagrams capture how the pieces align. The flowchart stored in [`doc
 ### 1. Load the profile
 
 1. Launch the browser build (open `index.html` in a modern browser).
-2. Press **L** to reveal the training/config panel.
+2. Press **O** to open the config panel (the **L** key still toggles the training overlay, but profile loading/saving lives under the config overlay).
 3. Click the profile dropdown and load `profiles/universality/casual_universality_flex.json`. The loader applies `tc.enabled = true`, `mode = 'rule110'`, and turns on Rule 110 snapshot capture while leaving the tape schema reference in place for later use.
 4. Confirm that the TC indicator in the panel is green and that the snapshot schema references in the UI point to `schemas/tc_rule110_snapshot.schema.json`.
+5. In the same panel, expand the **TC** group and enable the **TC overlay** toggle if you want the new HUD panel to mirror the latest TC snapshots on screen.
 
 > **Tip:** Because the profile keeps `updateCadence` at `1`, Rule 110 advances on every world tick. If you need to slow it down for visualization, adjust `tc.updateCadence` in the panel—`TcScheduler` will still preserve determinism because the seed is derived from `tick` regardless of cadence.
 

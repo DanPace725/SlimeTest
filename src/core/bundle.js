@@ -1,9 +1,10 @@
-import { CONFIG } from '../../config.js';
-import { RewardTracker } from '../../rewards.js';
-import { buildObservation } from '../../observations.js';
+import { CONFIG } from '../runtime/config.js';
+import { RewardTracker } from '../domain/rewards.js';
+import { buildObservation } from '../domain/observations.js';
 import { SignalResponseAnalytics } from '../../analysis/signalResponseAnalytics.js';
-import { SignalField } from '../../signalField.js';
-import { TcRandom } from '../../tcStorage.js';
+import { SignalField } from '../domain/signalField.js';
+import { TcRandom } from '../runtime/tcStorage.js';
+import { Controller as TcController } from '../runtime/controllers.js';
 import { computeSensingUpdate } from './sensing.js';
 import { computeMetabolicCost } from '../systems/metabolism.js';
 import { resolveControllerAction } from '../systems/controllerAction.js';
@@ -14,6 +15,24 @@ import { createMitosisSystem } from '../systems/mitosis.js';
 import { createDecaySystem } from '../systems/decay.js';
 import { clamp, mix, smoothstep } from '../utils/math.js';
 import { SIGNAL_CHANNELS, SIGNAL_MEMORY_LENGTH, SIGNAL_DISTRESS_NOISE_GAIN, SIGNAL_RESOURCE_PULL_GAIN, SIGNAL_BOND_CONFLICT_DAMP } from '../../app/constants.js';
+
+const cloneGenomeProgram = (program = []) => {
+  if (!Array.isArray(program)) return [];
+  const normalized = [];
+  for (const instruction of program) {
+    if (!instruction || typeof instruction !== 'object') continue;
+    const op = typeof instruction.op === 'string' ? instruction.op : null;
+    if (!op) continue;
+    const args = Array.isArray(instruction.args) ? instruction.args.slice() : [];
+    normalized.push({ op, args });
+  }
+  return normalized;
+};
+
+const cloneGenomeMetadata = (metadata) => {
+  if (!metadata || typeof metadata !== 'object') return null;
+  return { ...metadata };
+};
 
 
 function rgb2hex(r, g, b) {
@@ -308,6 +327,10 @@ export function createBundleClass(context) {
       this.controller = null; // Set by training system when needed
       this.rewardTracker = new RewardTracker(this);
       this.lastAction = null; // Store last action for display
+      this.genomePhase1 = null;
+      this._tcGenomeKeyBase = `tc.genome.agent.${this.id}`;
+      this._tcGenomeController = new TcController();
+      this._tcGenomeRuntimeAttached = false;
 
       // visibility toggle
       this.visible = true; // Agent is visible by default
@@ -1207,10 +1230,85 @@ export function createBundleClass(context) {
       return decaySystem.updateCorpseDecay(this, dt, fertilityGrid);
     }
 
+    setGenomeProgram(descriptor = null) {
+      if (!descriptor || typeof descriptor !== 'object') {
+        this.clearGenomeProgram();
+        return;
+      }
+      const program = cloneGenomeProgram(descriptor.program);
+      if (!program.length) {
+        this.clearGenomeProgram();
+        return;
+      }
+      const manifestKey = typeof descriptor.manifestKey === 'string'
+        ? descriptor.manifestKey
+        : (descriptor.manifestKey ?? null);
+      const origin = typeof descriptor.origin === 'string'
+        ? descriptor.origin
+        : (descriptor.origin ?? null);
+      const metadata = cloneGenomeMetadata(descriptor.metadata);
+      this.genomePhase1 = {
+        program,
+        manifestKey,
+        origin,
+        metadata,
+        lastAppliedTick: -1
+      };
+      this._applyGenomeRuntime();
+    }
+
+    clearGenomeProgram() {
+      this.genomePhase1 = null;
+      this._detachGenomeRuntime();
+    }
+
+    cloneGenomeFrom(sourceDescriptor) {
+      if (!sourceDescriptor) {
+        this.clearGenomeProgram();
+        return;
+      }
+      this.setGenomeProgram(sourceDescriptor);
+    }
+
+    _detachGenomeRuntime() {
+      if (this._tcGenomeController) {
+        this._tcGenomeController.clearTcHooks();
+      }
+      this._tcGenomeRuntimeAttached = false;
+    }
+
+    _applyGenomeRuntime() {
+      if (!this.genomePhase1 || !Array.isArray(this.genomePhase1.program) || this.genomePhase1.program.length === 0) {
+        this._detachGenomeRuntime();
+        return;
+      }
+      const metadata = cloneGenomeMetadata(this.genomePhase1.metadata);
+      try {
+        this._tcGenomeController.attachAgentGenomeRuntime({
+          bundle: this,
+          program: this.genomePhase1.program,
+          manifestKey: this.genomePhase1.manifestKey ?? null,
+          origin: this.genomePhase1.origin ?? null,
+          metadata,
+          stateKey: `${this._tcGenomeKeyBase}.state`,
+          bufferKey: `${this._tcGenomeKeyBase}.buffer`,
+          programKey: `${this._tcGenomeKeyBase}.program`
+        });
+        this._tcGenomeRuntimeAttached = true;
+      } catch (err) {
+        console.error('Failed to attach genome runtime for bundle', this.id, err);
+        this._tcGenomeRuntimeAttached = false;
+      }
+    }
+
     destroy() {
         if (this.trailRenderer) {
           this.trailRenderer.destroy();
           this.trailRenderer = null;
+        }
+        this.clearGenomeProgram();
+        if (this._tcGenomeController) {
+          this._tcGenomeController.clearTcHooks();
         }
         this.graphics.destroy();
     }
@@ -1246,6 +1344,9 @@ export function createBundleClass(context) {
       child.generation = parentGeneration + 1;
       child.parentId = parent.id;
       child.lastMitosisTick = getGlobalTick();
+      if (parent.genomePhase1) {
+        child.cloneGenomeFrom(parent.genomePhase1);
+      }
 
       world.bundles.push(child);
       world.totalBirths++;

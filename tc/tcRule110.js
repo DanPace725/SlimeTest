@@ -1,4 +1,5 @@
-import { TcStorage, TcScheduler } from '../tcStorage.js';
+import { TcStorage, TcScheduler } from '../src/runtime/tcStorage.js';
+import { TcOverlayStore } from '../src/runtime/tcOverlayStore.js';
 import {
   RULE110_DEFAULT_WIDTH,
   resolveRule110Initializer,
@@ -211,6 +212,23 @@ const createRule110Stepper = (options = {}) => {
           tick: ctx.tick ?? 0,
           payload: buildSnapshotPayload(ctx.tick ?? 0, snapshot, width, stateInfo),
           cells: snapshot
+        });
+      }
+      if (TcOverlayStore.getConfig().enabled) {
+        let activeCells = 0;
+        for (let i = 0; i < current.length; i++) {
+          if (current[i]) activeCells += 1;
+        }
+        TcOverlayStore.recordSnapshot({
+          type: 'tc.rule110.snapshot',
+          tick: ctx.tick ?? 0,
+          manifestKey: stateInfo.metadata?.manifestKey ?? null,
+          origin: stateInfo.origin ?? null,
+          metadata: stateInfo.metadata,
+          summary: {
+            width,
+            activeCells
+          }
         });
       }
       return current;

@@ -27,7 +27,9 @@ const localStorageRef = (() => {
 })();
 
 import { applyTcConfig } from './tcStorage.js';
-import { TapeMachineRegistry } from './tc/tcTape.js';
+import { TapeMachineRegistry } from '../../tc/tcTape.js';
+import { TcOverlayStore } from './tcOverlayStore.js';
+import { applyTcRuntimeConfig } from './tcRuntimeManager.js';
 
 const resolveConfigPath = (maybePath) => {
   if (!maybePath || typeof maybePath !== 'string') return null;
@@ -126,6 +128,30 @@ export const CONFIG = {
         capture: false,  // Set to true to capture Turing machine tape snapshots
         schema: 'schemas/tc_tape_snapshot.schema.json'
       }
+    },
+    overlay: {
+      enabled: false,
+      maxEntries: 6,
+      corner: 'top-right',
+      opacity: 0.85,
+      width: 320,
+      lineHeight: 15
+    },
+    rule110: {
+      width: 128,
+      initializer: 'ether',
+      phase: 0,
+      offset: null,
+      randomSeed: 0,
+      randomDensity: 0.5,
+      snapshotKey: 'tc.rule110.snapshot'
+    },
+    genome: {
+      preset: null,          // Named preset defined in tc/tcGenomePresets.js
+      program: null,         // Inline program (overrides preset when provided)
+      manifestKey: null,
+      origin: null,
+      metadata: null
     },
     machines: {
       // Turing machine definitions
@@ -542,6 +568,8 @@ export const CONFIG = {
 
 applyTcConfig(CONFIG.tc || {});
 loadTapeMachinesFromConfig(CONFIG.tc || {});
+TcOverlayStore.configure((CONFIG.tc && CONFIG.tc.overlay) || {});
+applyTcRuntimeConfig(CONFIG.tc || {});
 
 // --- Snapshots for panel resets ---
 let CURRENT_BASE_SNAPSHOT = null;        // last loaded/applied profile
@@ -674,7 +702,26 @@ export const CONFIG_SCHEMA = {
     "tc.enabled": { label: "Enable TC runtime", type: "boolean" },
     "tc.seed": { label: "TC seed", min: 0, max: 4294967295, step: 1 },
     "tc.maxCachedChunks": { label: "TC cache size", min: 1, max: 2048, step: 1 },
-    "tc.updateCadence": { label: "TC update cadence", min: 0, max: 1000, step: 1 }
+    "tc.updateCadence": { label: "TC update cadence", min: 0, max: 1000, step: 1 },
+    "tc.overlay.enabled": { label: "Show TC overlay", type: "boolean" },
+    "tc.overlay.maxEntries": { label: "TC overlay entries", min: 1, max: 20, step: 1 },
+    "tc.overlay.corner": {
+      label: "TC overlay corner",
+      type: "options",
+      options: ["top-right", "top-left", "bottom-right", "bottom-left"]
+    },
+    "tc.overlay.opacity": { label: "TC overlay opacity", min: 0.1, max: 1, step: 0.05 },
+    "tc.overlay.width": { label: "TC overlay width", min: 120, max: 600, step: 10 },
+    "tc.overlay.lineHeight": { label: "TC overlay line height", min: 10, max: 24, step: 1 },
+    "tc.rule110.width": { label: "Rule 110 width", min: 8, max: 2048, step: 1 },
+    "tc.rule110.initializer": {
+      label: "Rule 110 initializer",
+      type: "options",
+      options: ["ether", "glider", "random"]
+    },
+    "tc.rule110.phase": { label: "Rule 110 phase", min: 0, max: 4096, step: 1 },
+    "tc.rule110.randomSeed": { label: "Rule 110 random seed", min: 0, max: 4294967295, step: 1 },
+    "tc.rule110.randomDensity": { label: "Rule 110 density", min: 0, max: 1, step: 0.01 }
   },
   Hunger: {
     hungerBuildRate: { label: "Hunger build/sec", min: 0, max: 5, step: 0.01 },
@@ -887,6 +934,23 @@ const CONFIG_HINTS = {
   "plantEcology.spawnPressure.minSeedMultiplier": "Minimum seed rate under pressure.",
   "plantEcology.spawnPressure.minGrowthMultiplier": "Minimum growth rate under pressure.",
   "plantEcology.spawnPressure.minResourceMultiplier": "Minimum abundance cap under pressure.",
+
+  // TC runtime
+  "tc.enabled": "Enable the deterministic TC scheduler and any registered steppers.",
+  "tc.seed": "Base seed mixed into every TC tick so Rule 110 and genomes replay exactly.",
+  "tc.maxCachedChunks": "Upper bound on cached TC storage chunks before eviction.",
+  "tc.updateCadence": "Run the TC scheduler every N ticks (1 = every tick, higher = throttled).",
+  "tc.overlay.enabled": "Render the TC overlay HUD with the most recent manifest summaries.",
+  "tc.overlay.maxEntries": "Maximum snapshots to retain in the overlay history.",
+  "tc.overlay.corner": "Screen corner where the TC overlay is anchored.",
+  "tc.overlay.opacity": "Background opacity for the TC overlay panel.",
+  "tc.overlay.width": "Width of the TC overlay panel in pixels.",
+  "tc.overlay.lineHeight": "Line height for TC overlay text entries.",
+  "tc.rule110.width": "Number of cells simulated by the Rule 110 automaton.",
+  "tc.rule110.initializer": "Initializer preset used for seeding the Rule 110 tape.",
+  "tc.rule110.phase": "Phase offset applied to the ether/glider pattern.",
+  "tc.rule110.randomSeed": "Seed used when the random initializer is selected.",
+  "tc.rule110.randomDensity": "Active-cell density target when using the random initializer.",
 
   // Adaptive reward
   "adaptiveReward.enabled": "Toggle adaptive reward calculations.",
@@ -1165,6 +1229,7 @@ function findPathInSchema(path){
 }
 
 function onConfigChanged() {
+  TcOverlayStore.configure(CONFIG.tc?.overlay || {});
   // react to critical changes
   if (typeof window === 'undefined') return;
   
@@ -1207,6 +1272,7 @@ function onConfigChanged() {
   // You can add other "apply" hooks as needed.
   applyTcConfig(CONFIG.tc || {});
   loadTapeMachinesFromConfig(CONFIG.tc || {});
+  applyTcRuntimeConfig(CONFIG.tc || {});
   
   if (typeof window.updateParticipationStatusDisplay === 'function') {
     try {
@@ -1736,6 +1802,8 @@ export function enableTC(mode = 'rule110', options = {}) {
   if (typeof applyTcConfig === 'function') {
     applyTcConfig(CONFIG.tc);
   }
+  loadTapeMachinesFromConfig(CONFIG.tc);
+  applyTcRuntimeConfig(CONFIG.tc);
   
   console.log('   💡 Reload the page to apply TC settings fully');
   return CONFIG.tc;
@@ -1749,6 +1817,8 @@ export function disableTC() {
   CONFIG.tc.mode = null;
   CONFIG.tc.snapshots.rule110.capture = false;
   CONFIG.tc.snapshots.turingTape.capture = false;
+  applyTcConfig(CONFIG.tc);
+  applyTcRuntimeConfig(CONFIG.tc);
   console.log('✅ TC disabled');
   return CONFIG.tc;
 }

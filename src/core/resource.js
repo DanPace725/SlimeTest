@@ -1,7 +1,7 @@
-import { CONFIG } from '../../config.js';
-import { getResourceSpawnLocation } from '../../plantEcology.js';
-import { getRule110SpawnInfo } from '../../tcResourceBridge.js';
-import { TcRandom } from '../../tcStorage.js';
+import { CONFIG } from '../runtime/config.js';
+import { getResourceSpawnLocation } from '../domain/plantEcology.js';
+import { getRule110SpawnInfo } from '../runtime/tcResourceBridge.js';
+import { TcRandom } from '../runtime/tcStorage.js';
 
 export function createResourceClass(context) {
   if (!context || typeof context !== 'object') {

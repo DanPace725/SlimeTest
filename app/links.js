@@ -1,5 +1,5 @@
 // app/links.js - Link system for agent-to-agent connections
-import { CONFIG } from '../config.js';
+import { CONFIG } from '../src/runtime/config.js';
 import { SIGNAL_CHANNELS } from './constants.js';
 
 /**

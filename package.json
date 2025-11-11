@@ -2,7 +2,7 @@
   "name": "essence-engine",
   "version": "1.0.0",
   "description": "A simulation engine for emergent behaviors",
-  "main": "app.js",
+  "main": "src/runtime/app.js",
   "type": "module",
   "scripts": {
     "start": "vite",

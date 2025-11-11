@@ -27,7 +27,18 @@ The TC system provides:
 
 ## Quick Start
 
-### Method 1: Browser Console (Easiest!)
+### Method 0: Config Panel (UI-first)
+
+Press **O** in the browser build to open the config panel. Expand the **TC** group and you’ll find sliders for the master settings we now expose:
+
+- Toggle **Enable TC runtime** to wire up the deterministic scheduler.
+- Tweak **TC update cadence** if you want Rule 110 to advance less frequently than every tick.
+- Use the new **Rule 110** controls (width, initializer, phase, random seed/density) to seed the automaton without touching code.
+- Flip **Show TC overlay** on to surface the live `tc.rule110.snapshot` feed in the HUD. Opacity, size, and corner placement are configurable.
+
+Save/load profiles from that same panel; the schema now round-trips every `tc.*` field that appears in the UI, so presets such as `profiles/universality/casual_universality_flex.json` import/export cleanly.
+
+### Method 1: Browser Console
 
 Open your browser console and type:
 
@@ -50,7 +61,7 @@ Then **reload the page** to apply the settings.
 
 ### Method 2: Edit config.js
 
-In `config.js`, change the TC section:
+In `src/runtime/config.js`, change the TC section:
 
 ```javascript
 tc: {
@@ -58,6 +69,14 @@ tc: {
   seed: 0,                 // Random seed for determinism
   updateCadence: 1,        // Run every tick (or null for default)
   mode: 'rule110',         // 'rule110' or 'tape'
+  rule110: {               // Browser UI writes these automatically now
+    width: 128,
+    initializer: 'ether',
+    phase: 0,
+    randomSeed: 0,
+    randomDensity: 0.5,
+    snapshotKey: 'tc.rule110.snapshot'
+  },
   snapshots: {
     rule110: {
       capture: true,       // Capture Rule 110 snapshots
@@ -173,6 +192,13 @@ Snapshots are stored in `TcStorage` and can be accessed programmatically:
 const snapshot = TcStorage.get('tc.rule110.state');
 ```
 
+## Monitoring & Overlays
+
+There are two ways to see the computation evolve while the world runs:
+
+- **TC Overlay HUD** – Toggle `tc.overlay.enabled` (or the “Show TC overlay” checkbox in the panel) to pin a manifest feed to the canvas. Width, opacity, and history length are configurable in the same group.
+- **Rule 110 bar overlay** – Set `CONFIG.tcResourceIntegration.showOverlay = true` (or flip the “TC resource overlay” toggle in the resource integration block) to render a band of live cells plus the active-cell meter that `tcResourceBridge` exposes. This overlay draws directly from `window.rule110Stepper`, which is now registered automatically whenever `tc.mode === 'rule110'`.
+
 ## Advanced: Custom Turing Machines
 
 You can define custom Turing machines for your experiments:
@@ -215,9 +241,9 @@ TcStorage.getStats();     // Get storage statistics
 
 This profile demonstrates Turing-complete computation running alongside essence agents:
 
-1. Enable in browser console: `enableTC('rule110', { seed: 42 })`
-2. Reload page
-3. Rule 110 runs in background, providing deterministic computation
+1. Open the config panel (**O**) and load `profiles/universality/casual_universality_flex.json`.
+2. The preset turns on TC, locks `tc.rule110` to an ether initializer, enables the TC overlay, and keeps schemas pointed at `tc.rule110.snapshot`.
+3. Watch the HUD panel or the resource overlay to confirm the automaton is ticking in sync with the organism world.
 4. Agents learn in this Turing-complete environment
 
 The simulation is now **provably universal** - it can compute anything computable!

@@ -2,7 +2,7 @@
 // Resources emit "scent" that decreases with distance
 // Provides gradient-based navigation and rewards
 
-import { CONFIG } from './config.js';
+import { CONFIG } from '../runtime/config.js';
 
 /**
  * Calculate scent intensity at a point from a resource

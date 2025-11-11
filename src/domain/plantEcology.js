@@ -1,7 +1,7 @@
 // Plant Ecology System - Soil Fertility & Resource Clustering
 // Resources behave like plants: grow in fertile soil, spread seeds, deplete nutrients
 
-import { CONFIG } from './config.js';
+import { CONFIG } from '../runtime/config.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 

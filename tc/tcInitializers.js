@@ -1,4 +1,4 @@
-import { mixSeed } from '../tcStorage.js';
+import { mixSeed } from '../src/runtime/tcStorage.js';
 
 const RULE110 = 110;
 const ETHER_PATTERN = Uint8Array.from([

@@ -1,4 +1,5 @@
-import { TcScheduler, TcStorage } from '../tcStorage.js';
+import { TcScheduler, TcStorage } from '../src/runtime/tcStorage.js';
+import { TcOverlayStore } from '../src/runtime/tcOverlayStore.js';
 
 const DEFAULT_CHUNK_SIZE = 128;
 const DEFAULT_STATE_KEY = 'tc.tape.state';
@@ -439,6 +440,23 @@ const createTapeMachineStepper = (options = {}) => {
     const snapshot = buildSnapshot(tick);
     if (typeof onCapture === 'function') {
       onCapture({ tick, payload: snapshot });
+    }
+    if (TcOverlayStore.getConfig().enabled) {
+      TcOverlayStore.recordSnapshot({
+        type: snapshot.type,
+        tick,
+        manifestKey: snapshot.metadata?.machineId ?? null,
+        origin: snapshot.metadata?.origin ?? null,
+        metadata: snapshot.metadata,
+        summary: {
+          machineId: snapshot.metadata?.machineId,
+          headState: snapshot.head.state,
+          headPosition: snapshot.head.position,
+          halted: snapshot.head.halted,
+          windowStart: snapshot.window?.start,
+          windowEnd: snapshot.window?.end
+        }
+      });
     }
     return snapshot;
   };

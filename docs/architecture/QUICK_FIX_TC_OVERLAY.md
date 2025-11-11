@@ -84,5 +84,5 @@ This is NOT a bug - it's the computational substrate driving your environment!
 
 - Detailed guide: `../how-to/TC_RESOURCE_QUICKSTART.md`
 - Fix analysis: `TC_OVERLAY_FIX.md`
-- Debug tool: `test-tc-overlay-debug.js`
+- Debug tool: `test/legacy/test-tc-overlay-debug.js`
 

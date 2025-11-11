@@ -9,13 +9,13 @@ Link Rule 110 cellular automaton to resource spawning for a truly computational 
 If you don't see the green Rule 110 overlay after setup:
 
 1. **showOverlay is disabled** - Set `CONFIG.tcResourceIntegration.showOverlay = true`
-2. **Stepper not registered** - Make sure `window.rule110Stepper` exists
+2. **Stepper not registered** - Load a profile with `tc.mode = 'rule110'` or ensure `window.rule110Stepper` exists if you're manually wiring things up
 3. **Opacity too low** - Increase `CONFIG.tcResourceIntegration.overlayOpacity` to 0.5 or higher
 4. **TC not enabled** - Run `enableTC('rule110')` first
 
 ### Overlay Disappears After World.reset()
 
-**IMPORTANT:** `World.reset()` clears TC storage! Always register the stepper **AFTER** calling `World.reset()`:
+**IMPORTANT:** `World.reset()` clears TC storage! The runtime now replays the configured Rule 110 initializer automatically, but if you manually register your own stepper you still need to do it **after** `World.reset()` so your override survives:
 
 ```javascript
 // ❌ WRONG ORDER - overlay will disappear
@@ -23,10 +23,10 @@ const { stepper } = registerRule110Stepper(...);
 window.rule110Stepper = stepper;
 World.reset();  // Clears TC storage!
 
-// ✅ CORRECT ORDER
-World.reset();  // Clear first
+// ✅ CORRECT ORDER (for custom overrides)
+World.reset();  // Clear first (built-in manager replays the configured initializer)
 const { stepper } = registerRule110Stepper(...);
-window.rule110Stepper = stepper;  // Then register
+window.rule110Stepper = stepper;  // Then register your custom override
 ```
 
 **Quick Fix** (run in console):
@@ -40,6 +40,8 @@ window.rule110Stepper = stepper;  // Then register
 ```
 
 ## 🚀 Quick Setup (Browser Console)
+
+> **Already using the config panel or a TC-enabled profile?** Great—`applyTcRuntimeConfig` now registers `window.rule110Stepper` for you as soon as `tc.mode` is set to `'rule110'`. You only need the script below if you want to bypass the UI and wire up a custom initializer directly from the console.
 
 Paste this **complete block** into your browser console (all at once):
 
@@ -66,7 +68,7 @@ Paste this **complete block** into your browser console (all at once):
     stateKey: 'tc.rule110.state',
     bufferKey: 'tc.rule110.next'
   });
-  window.rule110Stepper = stepper;
+  window.rule110Stepper = stepper; // Overrides the auto-registered stepper with this custom instance
   
   console.log('✅ TC-Resource integration active!');
   console.log('Resources now spawn based on Rule 110 patterns');
@@ -141,7 +143,7 @@ This is **not a bug** - you're watching Turing-complete computation unfold! The 
     initializer: 'glider',
     initializerOptions: { offset: 20 }
   });
-  window.rule110Stepper = stepper;
+  window.rule110Stepper = stepper; // Optional override
   
   console.log('🌵 Sparse desert mode! Resources follow the glider.');
 })();
@@ -158,7 +160,7 @@ This is **not a bug** - you're watching Turing-complete computation unfold! The 
       initializer: 'random',
       initializerOptions: { density: 0.7, seed: 42 }
     });
-    window.rule110Stepper = stepper;
+    window.rule110Stepper = stepper; // Optional override
     
     const { CONFIG } = await import('./config.js');
     CONFIG.tcResourceIntegration.enabled = true;
@@ -191,7 +193,7 @@ This is **not a bug** - you're watching Turing-complete computation unfold! The 
     width: 128,
     initializer: 'ether'
   });
-  window.rule110Stepper = stepper;
+  window.rule110Stepper = stepper; // Optional override
   
   console.log('🌦️ Seasonal mode! Watch spawn rate cycle with TC activity.');
   
@@ -291,7 +293,7 @@ clearInterval(logInterval);
     stateKey: 'tc.rule110.state',
     bufferKey: 'tc.rule110.next'
   });
-  window.rule110Stepper = stepper;
+  window.rule110Stepper = stepper; // Optional override
   
   // Enable integration
   CONFIG.tcResourceIntegration.enabled = true;
@@ -332,7 +334,7 @@ clearInterval(logInterval);
     initializer: 'random',
     initializerOptions: { density: 0.5, seed: Math.floor(Math.random() * 1000) }
   });
-  window.rule110Stepper = stepper;
+  window.rule110Stepper = stepper; // Optional override
   World.reset();
   
   console.log('🎲 Random dense pattern applied');

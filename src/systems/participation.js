@@ -1,6 +1,6 @@
 import { clamp } from '../utils/math.js';
-import { CONFIG } from '../../config.js';
-import { SignalField } from '../../signalField.js';
+import { CONFIG } from '../runtime/config.js';
+import { SignalField } from '../domain/signalField.js';
 import { SignalResponseAnalytics } from '../../analysis/signalResponseAnalytics.js';
 
 const noop = () => {};

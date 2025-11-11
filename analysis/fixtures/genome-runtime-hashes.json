@@ -1,0 +1,105 @@
+{
+  "cases": [
+    {
+      "label": "hunger-loop",
+      "steps": 6,
+      "program": [
+        {
+          "op": "SET_EXPLORE",
+          "args": [
+            0.25
+          ]
+        },
+        {
+          "op": "IF_HUNGER_GT",
+          "args": [
+            0.6,
+            3
+          ]
+        },
+        {
+          "op": "SET_BOND_THRESHOLD",
+          "args": [
+            0.5
+          ]
+        },
+        {
+          "op": "GOTO",
+          "args": [
+            1
+          ]
+        }
+      ],
+      "bundle": {
+        "hunger": 0.72,
+        "chi": 12,
+        "interpretation_bias": {
+          "distress": 0,
+          "bond": 0.1
+        }
+      },
+      "hashes": [
+        "19a49d6387244b81c2015ad7e3d8b93cc49c5f71b9f2a452077ad69f6b8c168c",
+        "0cee229f7e14a24a3d850f1975fd94700b500ec1188a8930037672543a520816",
+        "28e1752bbe6c94e91cff76f3ac2258566454494c9e8bd6524c10fca7abc00ffb",
+        "883cca76edb5f434a9a5bbe61f5b3efb264f3a65559f6145e5936ecae680b2fe",
+        "e42e4416d718d0643058fc03668d27336bcb91b763cf86a7476a696400c63700",
+        "829774f52cdc294f03c446cdb35866a05c123f899d28e9c8dfd5fbbae4617077"
+      ]
+    },
+    {
+      "label": "chi-branch",
+      "steps": 7,
+      "program": [
+        {
+          "op": "SET_EXPLORE",
+          "args": [
+            0.8
+          ]
+        },
+        {
+          "op": "IF_CHI_LT",
+          "args": [
+            8,
+            3
+          ]
+        },
+        {
+          "op": "GOTO",
+          "args": [
+            0
+          ]
+        },
+        {
+          "op": "SET_BOND_THRESHOLD",
+          "args": [
+            0.2
+          ]
+        },
+        {
+          "op": "GOTO",
+          "args": [
+            0
+          ]
+        }
+      ],
+      "bundle": {
+        "hunger": 0.2,
+        "chi": 6,
+        "interpretation_bias": {
+          "distress": 0.4,
+          "bond": 0.6
+        }
+      },
+      "hashes": [
+        "ffaaf81939cafc471aad55378aabb7c2225e7bb6323ef22eb4318e0e6f6e46cb",
+        "795458f1a2129a26812c671b2ad024ba0154956af2cfa9d85e25a7be4f9ed38a",
+        "1b3787ecdf4dd4e5db88c8cbb6c6146d6766225159908b14acf5182d9f67e683",
+        "f1fbb44aa56202e481b7329396b1d420c9c76a5601fb4df1f768444c945b633b",
+        "2335d73d25691b5b574ad6bff73e3d362a96a49b2ae2ef15b92cf7e6171607e1",
+        "0b0b5cdf4ee5152e6757f92dbb51b8a94c08c6837e27132036dfb46faef5b25f",
+        "35dedce6a90463568f043625f1b896995f962830fe761832c97a912633dd08e0"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 // Config Parameter Optimizer - CEM for heuristic tuning
 // Uses Cross-Entropy Method to optimize CONFIG parameters directly
 
-import { CONFIG } from '../../config.js';
+import { CONFIG } from '../runtime/config.js';
 
 /**
  * Define which CONFIG parameters to optimize and their bounds

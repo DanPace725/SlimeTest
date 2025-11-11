@@ -1,6 +1,6 @@
 // Temporary module bridge for the legacy app entrypoint.
-// Loads the existing app.js side effects and re-exports its window globals.
-import '../app.js';
+// Loads the existing runtime entrypoint and re-exports its window globals.
+import './runtime/app.js';
 
 // Ensure refresh-like sizing at startup: run immediately and once next frame after load/pageshow
 // CRITICAL: High-DPI displays (Surface laptops) need extra time for dimensions to stabilize

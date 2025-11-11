@@ -5,7 +5,7 @@
   console.log('=== TC Overlay Diagnostic ===\n');
   
   // Step 1: Check CONFIG
-  const { CONFIG } = await import('./config.js');
+  const { CONFIG } = await import('../../src/runtime/config.js');
   console.log('1. CONFIG.tcResourceIntegration:');
   console.log('   - enabled:', CONFIG.tcResourceIntegration?.enabled);
   console.log('   - showOverlay:', CONFIG.tcResourceIntegration?.showOverlay);
@@ -45,7 +45,7 @@
   // Step 5: Check if overlay function exists
   console.log('\n5. Overlay Function:');
   try {
-    const { drawRule110Overlay } = await import('./tcResourceBridge.js');
+    const { drawRule110Overlay } = await import('../../src/runtime/tcResourceBridge.js');
     console.log('   - drawRule110Overlay imported:', !!drawRule110Overlay);
     
     // Try to call it with test parameters
@@ -68,7 +68,7 @@
   
   if (!window.rule110Stepper) {
     console.log('⚠️  No stepper registered. Run:');
-    console.log('   const { registerRule110Stepper } = await import("./tc/tcRule110.js");');
+    console.log('   const { registerRule110Stepper } = await import("../../tc/tcRule110.js");');
     console.log('   const { stepper } = registerRule110Stepper({ width: 128, initializer: "ether" });');
     console.log('   window.rule110Stepper = stepper;');
   }

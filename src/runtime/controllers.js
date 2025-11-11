@@ -2,12 +2,15 @@
 // Enables pluggable behavior: heuristic OR learned policy
 
 import { TcRandom, TcScheduler } from './tcStorage.js';
+import { createGenomeRuntime } from '../../tc/tcGenomeRuntime.js';
+import { CONFIG } from './config.js';
 
 // ========== Base Controller ==========
 // Interface: all controllers must implement act(obs)
 export class Controller {
   constructor() {
     this._tcUnsubscribe = null;
+    this._agentGenomeStepper = null;
   }
 
   registerTcHooks(hooks) {
@@ -39,6 +42,40 @@ export class Controller {
       }
     }
     this._tcUnsubscribe = null;
+    this._agentGenomeStepper = null;
+  }
+
+  attachAgentGenomeRuntime(options = {}) {
+    const {
+      bundle = null,
+      stepper = null,
+      runtimeFactory = createGenomeRuntime,
+      ...runtimeOptions
+    } = options || {};
+    if (!bundle) {
+      throw new Error('Controller.attachAgentGenomeRuntime requires a bundle reference.');
+    }
+    const resolvedFactory = typeof runtimeFactory === 'function' ? runtimeFactory : createGenomeRuntime;
+    const activeStepper = stepper || resolvedFactory(runtimeOptions);
+    if (!activeStepper) {
+      throw new Error('Controller.attachAgentGenomeRuntime could not create a genome runtime.');
+    }
+    const wrapPhase = (phaseFn) => {
+      if (typeof phaseFn !== 'function') return null;
+      return (ctx = {}) => {
+        const ctxWithBundle = ctx && ctx.bundle === bundle
+          ? ctx
+          : { ...(ctx || {}), bundle };
+        return phaseFn(ctxWithBundle);
+      };
+    };
+    this.registerTcHooks({
+      capture: wrapPhase(activeStepper.capture),
+      compute: wrapPhase(activeStepper.compute),
+      commit: wrapPhase(activeStepper.commit)
+    });
+    this._agentGenomeStepper = activeStepper;
+    return activeStepper;
   }
   
   /**

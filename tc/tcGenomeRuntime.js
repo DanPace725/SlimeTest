@@ -1,5 +1,6 @@
-import { TcStorage, TcScheduler, mixSeed } from '../tcStorage.js';
-import { CONFIG } from '../config.js';
+import { TcStorage, TcScheduler, mixSeed } from '../src/runtime/tcStorage.js';
+import { CONFIG } from '../src/runtime/config.js';
+import { TcOverlayStore } from '../src/runtime/tcOverlayStore.js';
 
 const CONTEXT_KEY = '__tcGenomeRuntime__';
 const DEFAULT_STATE_KEY = 'tc.genome.state';
@@ -603,6 +604,26 @@ const createGenomeRuntime = (options = {}) => {
         const payload = buildSnapshotPayload(tick, state, buffer, program, stateInfo);
         onCommit({ tick, payload, state, buffer, program });
       }
+      if (TcOverlayStore.getConfig().enabled) {
+        const bundleBias = ctx.bundle?.interpretation_bias || null;
+        TcOverlayStore.recordSnapshot({
+          type: GENOME_SNAPSHOT_TYPE,
+          tick,
+          manifestKey: stateInfo.manifestKey ?? null,
+          origin: stateInfo.origin ?? null,
+          metadata: stateInfo.metadata,
+          summary: {
+            programLength: program.length,
+            executed: buffer.executed?.op || null,
+            bias: bundleBias
+              ? {
+                  distress: bundleBias.distress ?? null,
+                  bond: bundleBias.bond ?? null
+                }
+              : null
+          }
+        });
+      }
       buffer.canMutate = false;
       return state;
     },
@@ -613,20 +634,44 @@ const createGenomeRuntime = (options = {}) => {
   };
 };
 
-const registerGenomeRuntime = (options = {}) => {
-  const runtime = createGenomeRuntime(options);
-  const unsubscribe = TcScheduler.registerHooks({
-    capture(ctx) {
-      runtime.capture(ctx);
-    },
-    compute(ctx) {
-      runtime.compute(ctx);
-    },
-    commit(ctx) {
-      runtime.commit(ctx);
-    }
+const buildContextWithBundle = (ctx, bundle) => {
+  if (!bundle) {
+    return ctx || {};
+  }
+  if (!ctx) {
+    return { bundle };
+  }
+  if (ctx.bundle === bundle) {
+    return ctx;
+  }
+  return { ...ctx, bundle };
+};
+
+const registerAgentGenomeStepper = (options = {}) => {
+  const {
+    bundle = null,
+    scheduler = TcScheduler,
+    ...runtimeOptions
+  } = options;
+  if (!scheduler || typeof scheduler.registerHooks !== 'function') {
+    throw new Error('registerAgentGenomeStepper requires a scheduler with registerHooks().');
+  }
+  const stepper = createGenomeRuntime(runtimeOptions);
+  const wrapPhase = (phaseFn) => {
+    if (typeof phaseFn !== 'function') return null;
+    return (ctx = {}) => phaseFn(buildContextWithBundle(ctx, bundle));
+  };
+  const unsubscribe = scheduler.registerHooks({
+    capture: wrapPhase(stepper.capture),
+    compute: wrapPhase(stepper.compute),
+    commit: wrapPhase(stepper.commit)
   });
-  return { runtime, unsubscribe };
+  return { stepper, unsubscribe };
+};
+
+const registerGenomeRuntime = (options = {}) => {
+  const { stepper, unsubscribe } = registerAgentGenomeStepper(options);
+  return { runtime: stepper, stepper, unsubscribe };
 };
 
 export {
@@ -638,5 +683,6 @@ export {
   genomeEmptyInitializer,
   genomeRandomInitializer,
   createGenomeRuntime,
+  registerAgentGenomeStepper,
   registerGenomeRuntime
 };

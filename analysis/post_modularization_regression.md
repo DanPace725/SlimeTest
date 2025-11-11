@@ -18,7 +18,7 @@
 | `node --loader ./test/esm-loader.mjs test/test-rule110.js` | ✔ Passed |
 | `node --loader ./test/esm-loader.mjs test/test-tape.js` | ✔ Passed |
 | `node --loader ./test/esm-loader.mjs test/test-tc-disabled.js` | ✔ Passed |
-| `node --loader ./test/esm-loader.mjs test-adaptive-rewards.js` | ✔ Passed with expected inline machine warning |
+| `node --loader ./test/esm-loader.mjs test/legacy/test-adaptive-rewards.js` | ✔ Passed with expected inline machine warning |
 
 ## Lessons Learned
 - `config.js` must remain import-safe for Node-based utilities. Guarding DOM access behind browser checks prevents regression scripts from crashing when a window or document is unavailable.

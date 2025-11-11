@@ -1,5 +1,5 @@
 // app/render.js - Core rendering system using PixiJS
-import { CONFIG } from '../config.js';
+import { CONFIG } from '../src/runtime/config.js';
 import { PIXI } from '../lib/pixi.js';
 
 /**

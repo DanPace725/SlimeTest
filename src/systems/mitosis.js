@@ -1,4 +1,4 @@
-import { TcRandom } from '../../tcStorage.js';
+import { TcRandom } from '../runtime/tcStorage.js';
 import { clamp } from '../utils/math.js';
 
 const DEFAULT_HEADING_NOISE = Math.PI * 2;

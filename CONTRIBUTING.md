@@ -45,7 +45,7 @@ Required suites:
 
 1. **System unit tests** – Cover the pure mechanics under `src/systems/`. At minimum run the existing metabolism and movement suites (and add new ones next to your modules).【F:test/metabolism.test.js†L1-L23】【F:test/movement.test.js†L1-L68】
 2. **Determinism tests for TC integrations** – Rule 110 and Turing tape harnesses ensure scheduler/tape behavior remains stable across refactors. Execute `test/test-rule110.js` and `test/test-tape.js` when touching `tc/`, `analysis/`, or `config` TC toggles.【F:test/test-rule110.js†L1-L91】【F:test/test-tape.js†L1-L82】
-3. **Adaptive reward smoke** – If you modify rewards or training heuristics, run the console harness to confirm math and logging: `node --loader ./test/esm-loader.mjs test-adaptive-rewards.js` (or `node test-adaptive-rewards.js` when using a module-aware Node build).【F:test-adaptive-rewards.js†L1-L104】
+3. **Adaptive reward smoke** – If you modify rewards or training heuristics, run the console harness to confirm math and logging: `node --loader ./test/esm-loader.mjs test/legacy/test-adaptive-rewards.js` (or `node test/legacy/test-adaptive-rewards.js` when using a module-aware Node build).【F:test/legacy/test-adaptive-rewards.js†L1-L104】
 4. **Browser sanity** – Manual, but required for UI changes: load `index.html`, verify hotkeys via `initializeInputManager`, and confirm overlays/settings respond as expected.【F:src/ui/inputManager.js†L29-L146】
 
 Document any skipped suite (with rationale) in the PR description so reviewers know what still needs coverage.

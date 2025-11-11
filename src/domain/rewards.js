@@ -1,7 +1,7 @@
 // Reward Tracking System for Essence Engine Learning
 // Tracks agent performance and calculates rewards
 
-import { CONFIG } from './config.js';
+import { CONFIG } from '../runtime/config.js';
 
 /**
  * Calculate adaptive resource collection reward

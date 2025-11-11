@@ -5,6 +5,13 @@
     "enabled": false,
     "mode": "rule110",
     "updateCadence": null,
+    "rule110": {
+      "width": 128,
+      "initializer": "ether",
+      "phase": 0,
+      "randomSeed": 0,
+      "randomDensity": 0.5
+    },
     "snapshots": {
       "rule110": {
         "_comment": "Manifests will conform to schemas/tc_rule110_snapshot.schema.json when enabled.",

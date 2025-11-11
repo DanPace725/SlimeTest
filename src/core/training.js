@@ -3,7 +3,7 @@ import { collectResource } from '../systems/resourceSystem.js';
 import { MetricsTracker } from './metricsTracker.js';
 import { ConfigOptimizer, ConfigTrainingManager, TUNABLE_PARAMS } from './configOptimizer.js';
 import { AdaptiveHeuristics } from './adaptiveHeuristics.js';
-import { buildObservation } from '../../observations.js';
+import { buildObservation } from '../domain/observations.js';
 import { buildStateSnapshot, applyStateSnapshot } from './stateIO.js';
 
 export function createTrainingModule({
@@ -102,14 +102,31 @@ export function createTrainingModule({
     return adaptiveHeuristics;
   }
 
+  const shouldRunTcCadence = (tick) => {
+    const rawCadence = config.tc?.updateCadence;
+    if (rawCadence === null || rawCadence === undefined) {
+      return true;
+    }
+    const cadence = Number(rawCadence);
+    if (!Number.isFinite(cadence) || cadence <= 1) {
+      return true;
+    }
+    const normalized = Math.max(1, Math.floor(cadence));
+    return (tick % normalized) === 0;
+  };
+
   function getTcContextFactory(mode) {
     return ({ dt }) => {
-      const config = tcScheduler.getConfig();
-      if (!config || !config.enabled) {
+      const schedulerConfig = tcScheduler.getConfig();
+      if (!schedulerConfig || !schedulerConfig.enabled) {
+        return null;
+      }
+      const tick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+      if (!shouldRunTcCadence(tick)) {
         return null;
       }
       return tcScheduler.beginTick({
-        tick: typeof getGlobalTick === 'function' ? getGlobalTick() : 0,
+        tick,
         dt,
         mode,
         scheduler: mode === 'train' ? 'episode' : 'play',

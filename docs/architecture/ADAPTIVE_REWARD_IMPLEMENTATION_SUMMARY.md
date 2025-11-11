@@ -223,7 +223,7 @@ adaptiveReward: {
 
 | File | Purpose |
 |------|---------|
-| `test-adaptive-rewards.js` | Validation test suite |
+| `test/legacy/test-adaptive-rewards.js` | Validation test suite |
 | `REWARD_SYSTEM_IMPLEMENTATION_PLAN.md` | Detailed implementation guide |
 | `REWARD_SYSTEM_SUMMARY.md` | Executive summary & rationale |
 | `REWARD_DECISION_TREE.md` | Visual decision guides |

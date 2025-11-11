@@ -5,6 +5,13 @@
     "enabled": false,
     "mode": "turing_tape",
     "updateCadence": null,
+    "rule110": {
+      "width": 128,
+      "initializer": "ether",
+      "phase": 0,
+      "randomSeed": 0,
+      "randomDensity": 0.5
+    },
     "snapshots": {
       "turingTape": {
         "_comment": "Manifests will follow schemas/tc_tape_snapshot.schema.json when recording is enabled.",

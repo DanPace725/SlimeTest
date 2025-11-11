@@ -95,7 +95,7 @@ showOverlay: false,    // Overlay also off by default (explicit intent)
 - Enhanced troubleshooting section with opacity adjustments
 - Added clarity about opacity values (0.1=faint, 0.5=moderate, 1.0=opaque)
 
-### 4. `test-tc-overlay-debug.js` (NEW)
+### 4. `test/legacy/test-tc-overlay-debug.js` (NEW)
 - Created comprehensive diagnostic script
 - Checks all configuration values
 - Tests stepper state and canvas availability
@@ -121,7 +121,7 @@ Run this in your browser console to test the overlay:
   });
   window.rule110Stepper = stepper;
   
-  const { CONFIG } = await import('./config.js');
+  const { CONFIG } = await import('/src/runtime/config.js');
   CONFIG.tcResourceIntegration.showOverlay = true;
   CONFIG.tcResourceIntegration.overlayOpacity = 0.5;  // Very visible
   
@@ -137,7 +137,7 @@ Run this in your browser console to test the overlay:
 // Load and run diagnostic
 const script = document.createElement('script');
 script.type = 'module';
-script.src = './test-tc-overlay-debug.js';
+script.src = './test/legacy/test-tc-overlay-debug.js';
 document.head.appendChild(script);
 ```
 

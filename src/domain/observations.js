@@ -1,9 +1,9 @@
 // Observation Vector Builder for Essence Engine Learning
 // Constructs normalized obs vector from bundle state
 
-import { CONFIG } from './config.js';
+import { CONFIG } from '../runtime/config.js';
 import { getScentGradient, getFoodDensitySensing } from './scentGradient.js';
-import { SIGNAL_CHANNELS } from './app/constants.js';
+import { SIGNAL_CHANNELS } from '../../app/constants.js';
 
 /**
  * Build observation vector for a bundle

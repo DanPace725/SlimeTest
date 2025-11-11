@@ -1,13 +1,13 @@
 // app/initialization.js - Setup and bootstrap module
-import { CONFIG } from '../config.js';
-import { SignalField } from '../signalField.js';
-import { HeuristicController, LinearPolicyController } from '../controllers.js';
-import { RewardTracker, EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from '../rewards.js';
-import { CEMLearner, TrainingManager } from '../learner.js';
-import { TrainingUI } from '../trainingUI.js';
-import { FertilityGrid } from '../plantEcology.js';
+import { CONFIG } from '../src/runtime/config.js';
+import { SignalField } from '../src/domain/signalField.js';
+import { HeuristicController, LinearPolicyController } from '../src/runtime/controllers.js';
+import { RewardTracker, EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from '../src/domain/rewards.js';
+import { CEMLearner, TrainingManager } from '../src/runtime/learner.js';
+import { TrainingUI } from '../src/runtime/trainingUI.js';
+import { FertilityGrid } from '../src/domain/plantEcology.js';
 import { SignalResponseAnalytics } from '../analysis/signalResponseAnalytics.js';
-import { TcScheduler, TcRandom, TcStorage } from '../tcStorage.js';
+import { TcScheduler, TcRandom, TcStorage } from '../src/runtime/tcStorage.js';
 import { createBundleClass } from '../src/core/bundle.js';
 import { createResourceClass } from '../src/core/resource.js';
 import { createWorld } from '../src/core/world.js';

@@ -1,4 +1,4 @@
-import { TcRandom } from '../../tcStorage.js';
+import { TcRandom } from '../runtime/tcStorage.js';
 
 // Build a portable snapshot of the running simulation state
 export function buildStateSnapshot({ world, trail, signalField, config } = {}) {

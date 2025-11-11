@@ -1,8 +1,8 @@
 // Test script for adaptive reward system
 // Run with: node test-adaptive-rewards.js
 
-import { CONFIG } from './config.js';
-import { calculateAdaptiveReward } from './rewards.js';
+import { CONFIG } from '../../src/runtime/config.js';
+import { calculateAdaptiveReward } from '../../src/domain/rewards.js';
 
 console.log('🧪 Testing Adaptive Reward System\n');
 console.log('='.repeat(60));

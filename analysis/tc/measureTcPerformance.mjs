@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
-import { TcScheduler, TcStorage } from '../../tcStorage.js';
+import { TcScheduler, TcStorage } from '../../src/runtime/tcStorage.js';
 import { registerRule110Stepper } from '../../tc/tcRule110.js';
 import { TapeMachineRegistry, registerTapeMachine } from '../../tc/tcTape.js';
 

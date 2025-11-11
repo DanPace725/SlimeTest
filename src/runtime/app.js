@@ -4,7 +4,7 @@
 // [T]=trail on/off [X]=clear trail [F]=diffusion on/off | [1-4]=toggle individual agents | [V]=toggle all | [L]=training UI
 // [Y]=adaptive heuristics | [U]=cycle HUD (full/minimal/hidden) | [K]=toggle hotkey strip | [O]=config panel
 
-import { PIXI } from './lib/pixi.js';
+import { PIXI } from '../../lib/pixi.js';
 
 // ========================================================================
 // 📋 INITIALIZATION ORDER REQUIREMENTS FOR AI AGENTS
@@ -23,33 +23,34 @@ import { PIXI } from './lib/pixi.js';
 // ========================================================================
 
 import { CONFIG } from './config.js';
-import { SignalField } from './signalField.js';
-import { EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from './rewards.js';
-import { buildObservation } from './observations.js';
+import { SignalField } from '../domain/signalField.js';
+import { EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from '../domain/rewards.js';
+import { buildObservation } from '../domain/observations.js';
 import { CEMLearner, TrainingManager } from './learner.js';
 import { TrainingUI, AdaptiveHeuristicsUI } from './trainingUI.js';
-import { visualizeScentGradient } from './scentGradient.js';
-import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getSpawnPressureMultiplier } from './plantEcology.js';
-import { SignalResponseAnalytics } from './analysis/signalResponseAnalytics.js';
+import { visualizeScentGradient } from '../domain/scentGradient.js';
+import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getSpawnPressureMultiplier } from '../domain/plantEcology.js';
+import { SignalResponseAnalytics } from '../../analysis/signalResponseAnalytics.js';
 import { TcScheduler } from './tcStorage.js';
 import { drawRule110Overlay } from './tcResourceBridge.js';
-import { createBundleClass } from './src/core/bundle.js';
-import { createResourceClass } from './src/core/resource.js';
-import { createWorld } from './src/core/world.js';
-import { initializeCanvasManager } from './src/ui/canvasManager.js';
-import { initializeInputManager } from './src/ui/inputManager.js';
-import ParticipationManager from './src/systems/participation.js';
-import { startSimulation } from './src/core/simulationLoop.js';
-import { createTrainingModule } from './src/core/training.js';
-import { collectResource } from './src/systems/resourceSystem.js';
-import { MetricsTracker } from './src/core/metricsTracker.js';
+import { drawTcOverlay } from './tcOverlayRenderer.js';
+import { createBundleClass } from '../core/bundle.js';
+import { createResourceClass } from '../core/resource.js';
+import { createWorld } from '../core/world.js';
+import { initializeCanvasManager } from '../ui/canvasManager.js';
+import { initializeInputManager } from '../ui/inputManager.js';
+import ParticipationManager from '../systems/participation.js';
+import { startSimulation } from '../core/simulationLoop.js';
+import { createTrainingModule } from '../core/training.js';
+import { collectResource } from '../systems/resourceSystem.js';
+import { MetricsTracker } from '../core/metricsTracker.js';
 import { 
   SIGNAL_CHANNELS,
   SIGNAL_MEMORY_LENGTH,
   SIGNAL_DISTRESS_NOISE_GAIN,
   SIGNAL_RESOURCE_PULL_GAIN, 
   SIGNAL_BOND_CONFLICT_DAMP
-} from './app/constants.js';
+} from '../../app/constants.js';
 
 const getTerrainHeight = null;
 const loadedPolicyInfo = null;
@@ -1644,9 +1645,25 @@ let trainingModule = null;
     }
 
     // ---------- Main loop ----------
+    const shouldRunTcThisTick = () => {
+      const rawCadence = CONFIG.tc?.updateCadence;
+      if (rawCadence === null || rawCadence === undefined) {
+        return true;
+      }
+      const cadence = Number(rawCadence);
+      if (!Number.isFinite(cadence) || cadence <= 1) {
+        return true;
+      }
+      const normalized = Math.max(1, Math.floor(cadence));
+      return (globalTick % normalized) === 0;
+    };
+
     const beginTick = ({ dt, mode }) => {
       const schedulerConfig = TcScheduler.getConfig();
       if (!schedulerConfig?.enabled) {
+        return null;
+      }
+      if (!shouldRunTcThisTick()) {
         return null;
       }
       return TcScheduler.beginTick({
@@ -2168,6 +2185,7 @@ let trainingModule = null;
       World.bundles.forEach((bundle) => bundle.draw());
 
       drawHUD();
+      drawTcOverlay(ctx, canvasWidth, canvasHeight);
 
       if (CONFIG.tcResourceIntegration?.showOverlay && window.rule110Stepper) {
         drawRule110Overlay(ctx, window.rule110Stepper, canvasWidth, canvasHeight);

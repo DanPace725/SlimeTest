@@ -1,8 +1,10 @@
-import { CONFIG } from '../../config.js';
-import { SignalField } from '../../signalField.js';
+import { CONFIG } from '../runtime/config.js';
+import { SignalField } from '../domain/signalField.js';
 import { SignalResponseAnalytics } from '../../analysis/signalResponseAnalytics.js';
-import { TcScheduler, TcStorage, TcRandom } from '../../tcStorage.js';
+import { TcScheduler, TcStorage, TcRandom } from '../runtime/tcStorage.js';
+import { applyTcRuntimeConfig } from '../runtime/tcRuntimeManager.js';
 import ParticipationManager from '../systems/participation.js';
+import { resolveGenomePreset } from '../../tc/tcGenomePresets.js';
 
 const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -46,6 +48,36 @@ export function createWorld(context) {
   const canvasHeight = () => getCanvasHeight();
   const nowSeconds = () => getPerformanceNow() / 1000;
 
+  const buildConfiguredGenomeDescriptor = () => {
+    const genomeConfig = CONFIG.tc?.genome;
+    if (!genomeConfig || typeof genomeConfig !== 'object') {
+      return null;
+    }
+    if (Array.isArray(genomeConfig.program) && genomeConfig.program.length > 0) {
+      return {
+        program: genomeConfig.program,
+        manifestKey: genomeConfig.manifestKey ?? 'config.tc.genome',
+        origin: genomeConfig.origin ?? 'config.tc',
+        metadata: genomeConfig.metadata ? { ...genomeConfig.metadata } : null
+      };
+    }
+    if (typeof genomeConfig.preset === 'string' && genomeConfig.preset.trim().length > 0) {
+      return resolveGenomePreset(genomeConfig.preset);
+    }
+    return null;
+  };
+
+  const installGenomeForBundle = (bundle, descriptor) => {
+    if (!bundle || typeof bundle.setGenomeProgram !== 'function') {
+      return;
+    }
+    if (descriptor) {
+      bundle.setGenomeProgram(descriptor);
+    } else {
+      bundle.clearGenomeProgram();
+    }
+  };
+
   const world = {
     paused: false,
     bundles: [],
@@ -82,6 +114,7 @@ export function createWorld(context) {
       }
       TcStorage.clear();
       TcScheduler.reset();
+      applyTcRuntimeConfig(CONFIG.tc || {});
       setGlobalTick(0);
       Ledger.credits = {};
       // Clear all links on reset
@@ -115,6 +148,7 @@ export function createWorld(context) {
       // Create starting agents based on config
       const numAgents = Math.max(1, Math.floor(CONFIG.startingAgents || 4));
       this.bundles = [];
+      const genomeDescriptor = buildConfiguredGenomeDescriptor();
       
       // Position agents in a circle around the center
       const radius = Math.min(canvasWidth(), canvasHeight()) * 0.15; // 15% of smaller dimension
@@ -123,7 +157,9 @@ export function createWorld(context) {
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius;
         const agentId = i + 1; // IDs start at 1
-        this.bundles.push(new Bundle(x, y, CONFIG.bundleSize, CONFIG.startChi, agentId));
+        const bundle = new Bundle(x, y, CONFIG.bundleSize, CONFIG.startChi, agentId);
+        installGenomeForBundle(bundle, genomeDescriptor);
+        this.bundles.push(bundle);
       }
       
       // Set next agent ID to continue after starting agents
