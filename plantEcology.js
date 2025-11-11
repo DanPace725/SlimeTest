@@ -32,13 +32,13 @@ export function getSpawnPressureMultiplier(aliveCount, minMultiplier = 0) {
  */
 export class FertilityGrid {
   constructor(width, height) {
-    console.log(`[FertilityGrid] Constructor called with: ${width}x${height}`);
+    // console.log(`[FertilityGrid] Constructor called with: ${width}x${height}`);
     this.cell = CONFIG.plantEcology.fertilityCell;
     this.w = Math.max(1, Math.floor(width / this.cell));
     this.h = Math.max(1, Math.floor(height / this.cell));
     const len = this.w * this.h;
-    
-    console.log(`[FertilityGrid] Initialized: ${this.w}x${this.h} cells (${this.cell}px each) = ${this.w * this.cell}x${this.h * this.cell} world size | Input was: ${width}x${height}`);
+
+    // console.log(`[FertilityGrid] Initialized: ${this.w}x${this.h} cells (${this.cell}px each) = ${this.w * this.cell}x${this.h * this.cell} world size | Input was: ${width}x${height}`);
     
     this.fertility = new Float32Array(len);
     this.lastHarvestTime = new Uint32Array(len); // Track when each cell was last harvested
@@ -211,7 +211,7 @@ export class FertilityGrid {
     const spawnWidth = Math.max(0, width - 2 * margin);
     const spawnHeight = Math.max(0, height - 2 * margin);
     
-    console.log(`[FertilityGrid] Finding spawn location | Grid: ${this.w}x${this.h} cells (${this.cell}px) | Grid world: ${this.w * this.cell}x${this.h * this.cell} | Spawn bounds: ${width}x${height} | Spawn area: ${spawnWidth}x${spawnHeight}`);
+    // console.log(`[FertilityGrid] Finding spawn location | Grid: ${this.w}x${this.h} cells (${this.cell}px) | Grid world: ${this.w * this.cell}x${this.h * this.cell} | Spawn bounds: ${width}x${height} | Spawn area: ${spawnWidth}x${spawnHeight}`);
     
     // Try multiple candidates, pick most fertile
     let bestX = margin + Math.random() * spawnWidth;

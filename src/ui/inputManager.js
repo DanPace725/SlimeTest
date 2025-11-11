@@ -15,7 +15,9 @@ export function initializeInputManager({
   getTrail,
   getSignalField,
   getTrainingUI,
+  getAdaptiveHeuristicsUI,
   getParticipationManager,
+  getTrainingModule,
   CONFIG
 }) {
   const held = new Set();
@@ -136,6 +138,7 @@ export function initializeInputManager({
     const trail = typeof getTrail === 'function' ? getTrail() : undefined;
     const signalField = typeof getSignalField === 'function' ? getSignalField() : undefined;
     const trainingUI = typeof getTrainingUI === 'function' ? getTrainingUI() : undefined;
+    const adaptiveHeuristicsUI = typeof getAdaptiveHeuristicsUI === 'function' ? getAdaptiveHeuristicsUI() : undefined;
 
     switch (e.code) {
       case 'Space':
@@ -192,6 +195,9 @@ export function initializeInputManager({
       case 'KeyL':
         trainingUI?.toggle?.();
         break;
+      case 'KeyY':
+        adaptiveHeuristicsUI?.toggle?.();
+        break;
       case 'KeyG':
         state.showScentGradient = !state.showScentGradient;
         console.log(`🌸 Scent gradient visualization ${state.showScentGradient ? 'ENABLED' : 'DISABLED'}`);
@@ -236,6 +242,15 @@ export function initializeInputManager({
             URL.revokeObjectURL(url);
             console.log(`📸 Screenshot saved: ${filename}`);
           }, 'image/png');
+        }
+        break;
+      case 'KeyY':
+        if (typeof getTrainingModule === 'function') {
+          const trainingModule = getTrainingModule();
+          if (trainingModule && typeof trainingModule.toggleAdaptiveHeuristics === 'function') {
+            const isActive = trainingModule.toggleAdaptiveHeuristics();
+            console.log(`🧠 Adaptive Heuristics ${isActive ? 'ENABLED' : 'DISABLED'} [Y]`);
+          }
         }
         break;
       default:

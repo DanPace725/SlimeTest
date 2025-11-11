@@ -133,6 +133,9 @@ export class GameLoop {
         if (this.CONFIG.plantEcology.enabled && this.systems.FertilityField) {
             this.handlePlantEcology(dt);
         }
+
+        // Adaptive heuristics learning in play mode
+        this.updateAdaptiveLearning();
     };
 
     reproductionPhase = ({ mode }) => {
@@ -281,7 +284,7 @@ export class GameLoop {
                 this.CONFIG.resourceRadius
             );
             this.world.resources.push(newResource);
-            console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
+            // console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
         }
 
         // Try spontaneous growth
@@ -300,7 +303,7 @@ export class GameLoop {
                 this.CONFIG.resourceRadius
             );
             this.world.resources.push(newResource);
-            console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
+            // console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
         }
 
         // Update fertility field
@@ -344,6 +347,81 @@ export class GameLoop {
 
     clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
+    }
+
+    updateAdaptiveLearning() {
+        // Check if we have training module with adaptive heuristics
+        const trainingModule = this.systems.trainingModule;
+        if (!trainingModule) return;
+
+        const adaptiveHeuristics = trainingModule.getAdaptiveHeuristics?.();
+        if (!adaptiveHeuristics || !adaptiveHeuristics.isActive) return;
+
+        // Learn from each agent's experience
+        this.world.bundles.forEach(bundle => {
+            if (!bundle.alive) return;
+
+            // Build observation for this agent
+            const nearestResource = this.world.getNearestResource(bundle);
+            const observation = this.buildAgentObservation(bundle, nearestResource);
+
+            // Compute reward based on recent chi gains
+            const reward = this.computeAgentReward(bundle);
+
+            // Update adaptive heuristics
+            trainingModule.learnAdaptiveHeuristics(reward, observation);
+        });
+    }
+
+    buildAgentObservation(bundle, resource) {
+        // Build observation similar to observations.js but simplified for play mode
+        const obs = {
+            hunger: bundle.hunger || 0,
+            frustration: bundle.frustration || 0,
+            chi: bundle.chi,
+            resVisible: 0,
+            wallMag: 0,
+            trailMean: 0,
+            signalResource: 0,
+            signalDistress: 0
+        };
+
+        // Check if resource is visible
+        if (resource) {
+            const dist = Math.hypot(resource.x - bundle.x, resource.y - bundle.y);
+            obs.resVisible = dist <= bundle.currentSensoryRange ? 1 : 0;
+        }
+
+        // Sample trail at agent position
+        const trailSample = this.systems.Trail.sample(bundle.x, bundle.y);
+        obs.trailMean = trailSample.value || 0;
+
+        // Check wall proximity
+        const wallMargin = this.CONFIG.aiWallAvoidMargin || 80;
+        const dLeft = bundle.x;
+        const dRight = this.systems.canvasWidth - bundle.x;
+        const dTop = bundle.y;
+        const dBottom = this.systems.canvasHeight - bundle.y;
+        const minWallDist = Math.min(dLeft, dRight, dTop, dBottom);
+        obs.wallMag = minWallDist < wallMargin ? (1 - minWallDist / wallMargin) : 0;
+
+        // Sample signal if enabled
+        if (this.CONFIG.signal?.enabled && this.systems.SignalField) {
+            const signal = this.systems.SignalField.sample(bundle.x, bundle.y);
+            obs.signalResource = signal.channels?.[0] || 0;
+            obs.signalDistress = signal.channels?.[1] || 0;
+        }
+
+        return obs;
+    }
+
+    computeAgentReward(bundle) {
+        // Simple reward: positive for having chi, negative for hunger/frustration
+        const chiReward = bundle.chi * 0.1;
+        const hungerPenalty = bundle.hunger * -0.5;
+        const frustrationPenalty = bundle.frustration * -0.3;
+        
+        return chiReward + hungerPenalty + frustrationPenalty;
     }
 
     getPhases() {

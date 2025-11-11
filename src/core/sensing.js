@@ -1,6 +1,6 @@
 import { clamp, smoothstep } from '../utils/math.js';
 
-export function computeSensingUpdate(state, dt, config) {
+export function computeSensingUpdate(state, dt, config, adaptiveHeuristics = null) {
   const {
     extendedSensing,
     alive,
@@ -11,7 +11,9 @@ export function computeSensingUpdate(state, dt, config) {
     chi
   } = state;
 
-  const base = config.aiSensoryRangeBase;
+  // Get adaptive parameters if available
+  const base = adaptiveHeuristics?.getParam('sensoryRangeBase') ?? config.aiSensoryRangeBase;
+  const hungerSenseAmp = adaptiveHeuristics?.getParam('hungerSenseAmp') ?? config.hungerSenseAmp;
   const max = config.aiSensoryRangeMax;
 
   let nextTarget = targetSensoryRange ?? base;
@@ -20,7 +22,7 @@ export function computeSensingUpdate(state, dt, config) {
   } else {
     const f = clamp(frustration, 0, 1);
     const h = clamp(hunger, 0, 1);
-    const hungerAmp = 1 + (config.hungerSenseAmp - 1) * h;
+    const hungerAmp = 1 + (hungerSenseAmp - 1) * h;
     const bias = smoothstep(0.0, 1.0, f) * config.aiSenseBiasFromFrustr * hungerAmp;
     nextTarget = clamp(base + (max - base) * bias, base, max);
   }

@@ -2,6 +2,8 @@ import { performSimulationStep } from './simulationLoop.js';
 import { collectResource } from '../systems/resourceSystem.js';
 import { MetricsTracker } from './metricsTracker.js';
 import { ConfigOptimizer, ConfigTrainingManager, TUNABLE_PARAMS } from './configOptimizer.js';
+import { AdaptiveHeuristics } from './adaptiveHeuristics.js';
+import { buildObservation } from '../../observations.js';
 import { buildStateSnapshot, applyStateSnapshot } from './stateIO.js';
 
 export function createTrainingModule({
@@ -37,6 +39,7 @@ export function createTrainingModule({
   let trainingManager = null;
   let configTrainingManager = null;
   let configOptimizer = null;
+  let adaptiveHeuristics = null;
   let stopTrainingFlag = false;
   let loadedPolicyInfo = null;
   let lastMetricsHistory = null;
@@ -92,6 +95,13 @@ export function createTrainingModule({
     return configTrainingManager;
   }
 
+  function ensureAdaptiveHeuristics() {
+    if (!adaptiveHeuristics) {
+      adaptiveHeuristics = new AdaptiveHeuristics(config);
+    }
+    return adaptiveHeuristics;
+  }
+
   function getTcContextFactory(mode) {
     return ({ dt }) => {
       const config = tcScheduler.getConfig();
@@ -106,6 +116,32 @@ export function createTrainingModule({
         world
       });
     };
+  }
+
+  // Adaptive Heuristics functions
+  function toggleAdaptiveHeuristics() {
+    const ah = ensureAdaptiveHeuristics();
+    ah.toggle();
+    return ah.isActive;
+  }
+
+  function getAdaptiveHeuristicsStats() {
+    const ah = ensureAdaptiveHeuristics();
+    return ah.getStats();
+  }
+
+  function learnAdaptiveHeuristics(reward, observation) {
+    const ah = ensureAdaptiveHeuristics();
+    ah.learn(reward, observation);
+  }
+
+  function resetAdaptiveHeuristics() {
+    const ah = ensureAdaptiveHeuristics();
+    ah.reset();
+  }
+
+  function getAdaptiveHeuristics() {
+    return ensureAdaptiveHeuristics();
   }
 
   async function runHeuristicEpisode() {
@@ -231,6 +267,13 @@ export function createTrainingModule({
           world.resources
         );
         totalReward += stepReward;
+
+        // Adaptive heuristics learning
+        if (adaptiveHeuristics?.isActive) {
+          const currentTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+          const observation = buildObservation(bundle, nearestResource, trail, currentTick, world.resources);
+          learnAdaptiveHeuristics(stepReward, observation);
+        }
       }
 
       if (phaseState.tickContext) {
@@ -418,6 +461,13 @@ export function createTrainingModule({
           world.resources
         );
         totalReward += stepReward;
+
+        // Adaptive heuristics learning
+        if (adaptiveHeuristics?.isActive) {
+          const currentTick = typeof getGlobalTick === 'function' ? getGlobalTick() : 0;
+          const observation = buildObservation(bundle, nearestResource, trail, currentTick, world.resources);
+          learnAdaptiveHeuristics(stepReward, observation);
+        }
       }
 
       if (tickContext) {
@@ -1094,6 +1144,7 @@ export function createTrainingModule({
       alert('✅ Config applied and world reset!\n\nWatch the agents perform with the optimized parameters!');
     });
 
+
     console.log('Training UI initialized. Press [L] to toggle.');
   }
   
@@ -1138,6 +1189,10 @@ export function createTrainingModule({
     },
     getLastMetrics: () => lastMetricsHistory,
     getConfigOptimizer: () => configOptimizer,
-    getConfigTrainingManager: () => configTrainingManager
+    getConfigTrainingManager: () => configTrainingManager,
+    // Adaptive Heuristics
+    getAdaptiveHeuristics,
+    learnAdaptiveHeuristics,
+    resetAdaptiveHeuristics,
   };
 }

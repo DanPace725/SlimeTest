@@ -480,7 +480,7 @@ export const CONFIG = {
 
   // === Signal Field (multi-channel environmental signals) ===
   signal: {
-    enabled: false,
+    enabled: true,
     cell: 10,
     decayPerSec: 0.06,
     diffusePerSec: 0.12,

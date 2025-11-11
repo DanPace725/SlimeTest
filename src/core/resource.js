@@ -199,7 +199,7 @@ export function createResourceClass(context) {
         this.x = spawnInfo.location.x;
         this.y = spawnInfo.location.y;
         this.tcData = spawnInfo.tcData; // Store TC metadata
-        console.log(`[Resource] TC spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${canvasWidth()}x${canvasHeight()}`);
+        // console.log(`[Resource] TC spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${canvasWidth()}x${canvasHeight()}`);
       }
       // Use fertility-based spawning if plant ecology enabled
       else if (CONFIG.plantEcology.enabled) {
@@ -210,7 +210,7 @@ export function createResourceClass(context) {
           const location = getResourceSpawnLocation(field, cw, ch);
           this.x = location.x;
           this.y = location.y;
-          console.log(`[Resource] Plant ecology spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${cw}x${ch} | Fertility grid: ${field.w * field.cell}x${field.h * field.cell}`);
+          // console.log(`[Resource] Plant ecology spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${cw}x${ch} | Fertility grid: ${field.w * field.cell}x${field.h * field.cell}`);
         }
       } else {
         // Fallback: random spawn
@@ -224,7 +224,7 @@ export function createResourceClass(context) {
         // Spawn within canvas bounds with margin
         this.x = margin + TcRandom.random() * spawnWidth;
         this.y = margin + TcRandom.random() * spawnHeight;
-        console.log(`[Resource] Random spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${width}x${height} | Spawn area: ${spawnWidth}x${spawnHeight} | Margin: ${margin}`);
+        // console.log(`[Resource] Random spawn at (${this.x.toFixed(0)}, ${this.y.toFixed(0)}) | Canvas: ${width}x${height} | Spawn area: ${spawnWidth}x${spawnHeight} | Margin: ${margin}`);
       }
 
       this.age = 0;

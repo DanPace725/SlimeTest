@@ -1,8 +1,8 @@
 // Essence Engine v0.6 — Learning system with plant ecology
 // Controls: [WASD/Arrows]=move (Agent 1 when MANUAL) | [A]=auto toggle | [S]=toggle extended sensing
-// [G]=scent gradient viz | [P]=fertility viz | [M]=mitosis toggle | [Space]=pause [R]=reset [C]=+5χ all 
+// [G]=scent gradient viz | [P]=fertility viz | [M]=mitosis toggle | [Space]=pause [R]=reset [C]=+5χ all
 // [T]=trail on/off [X]=clear trail [F]=diffusion on/off | [1-4]=toggle individual agents | [V]=toggle all | [L]=training UI
-// [H]=agent dashboard | [U]=cycle HUD (full/minimal/hidden) | [K]=toggle hotkey strip | [O]=config panel
+// [Y]=adaptive heuristics | [U]=cycle HUD (full/minimal/hidden) | [K]=toggle hotkey strip | [O]=config panel
 
 import { PIXI } from './lib/pixi.js';
 
@@ -25,9 +25,10 @@ import { PIXI } from './lib/pixi.js';
 import { CONFIG } from './config.js';
 import { SignalField } from './signalField.js';
 import { EpisodeManager, updateFindTimeEMA, calculateAdaptiveReward } from './rewards.js';
+import { buildObservation } from './observations.js';
 import { CEMLearner, TrainingManager } from './learner.js';
-import { TrainingUI } from './trainingUI.js';
-import { visualizeScentGradient, visualizeScentHeatmap } from './scentGradient.js';
+import { TrainingUI, AdaptiveHeuristicsUI } from './trainingUI.js';
+import { visualizeScentGradient } from './scentGradient.js';
 import { FertilityGrid, attemptSeedDispersal, attemptSpontaneousGrowth, getSpawnPressureMultiplier } from './plantEcology.js';
 import { SignalResponseAnalytics } from './analysis/signalResponseAnalytics.js';
 import { TcScheduler } from './tcStorage.js';
@@ -52,6 +53,9 @@ import {
 
 const getTerrainHeight = null;
 const loadedPolicyInfo = null;
+
+// Declare trainingModule early to avoid initialization order issues
+let trainingModule = null;
 
 (() => {
     const canvas = document.getElementById("view");
@@ -751,34 +755,61 @@ const loadedPolicyInfo = null;
       step(dt) {
         if (!this.buf) return;
   
-        // Evaporation (exponential-ish)
+        // Evaporation: Simulates the fading of the trail over time.
+        // This is a simple exponential decay model where a fraction of the trail's
+        // strength is removed each frame. The rate is controlled by `evapPerSec`.
+        // The formula is `v' = v - k*v`, which is a forward Euler approximation
+        // of the differential equation `dV/dt = -k*V`.
         const k = CONFIG.evapPerSec * dt;
         for (let i = 0; i < this.buf.length; i++) {
           const v = this.buf[i];
           this.buf[i] = v > 0 ? Math.max(0, v - k * v) : 0;
         }
   
-        // Diffusion (cross kernel)
+        // Diffusion: Simulates the spreading of the trail scent.
+        // This process uses a simplified 5-point stencil (a cross shape) to
+        // approximate the heat equation. Each cell's value moves towards the
+        // average of its four cardinal neighbors.
         if (CONFIG.enableDiffusion) {
           const a = CONFIG.diffusePerSec * dt;
           if (a > 0) {
             const w = this.w, h = this.h, src = this.buf, dst = this.tmp;
+
+            // We use a temporary buffer (`dst`) to store the new values.
+            // This is critical to ensure that the calculation for each cell is based
+            // on the state of its neighbors from the *previous* time step, preventing
+            // numerical instability and ensuring the diffusion is calculated correctly.
             for (let y = 0; y < h; y++) {
+              // Clamp coordinates at the edges to prevent reading out of bounds.
+              // This is a simple "zero-flux" boundary condition where the trail
+              // does not diffuse beyond the edge of the grid.
               const yUp = (y > 0) ? y-1 : y;
               const yDn = (y < h-1) ? y+1 : y;
               for (let x = 0; x < w; x++) {
                 const xLt = (x > 0) ? x-1 : x;
                 const xRt = (x < w-1) ? x+1 : x;
-                const iC = y*w + x;
-                const vC = src[iC];
+
+                const iC = y*w + x; // Current cell index
+                const vC = src[iC]; // Current cell value
+
+                // Get values of the four neighbors
                 const vUp = src[yUp*w + x];
                 const vDn = src[yDn*w + x];
                 const vLt = src[y*w + xLt];
                 const vRt = src[y*w + xRt];
+
+                // Calculate the average of the neighbors. This represents the
+                // equilibrium point that the current cell's value is moving towards.
                 const mean = (vUp + vDn + vLt + vRt) * 0.25;
+
+                // The new value is the current value plus a fraction `a` of the
+                // difference between the neighbor average and the current value.
+                // This is a discrete approximation of the diffusion process.
                 dst[iC] = clamp(vC + a * (mean - vC), 0, 1);
               }
             }
+            // Swap the buffers for the next frame. The temporary buffer now holds
+            // the new state, and the old buffer can be reused as the temporary one.
             const t = this.buf; this.buf = this.tmp; this.tmp = t;
           }
         }
@@ -897,7 +928,9 @@ const loadedPolicyInfo = null;
       getTrail: () => Trail,
       getSignalField: () => SignalField,
       getTrainingUI: () => window.trainingUI,
+      getAdaptiveHeuristicsUI: () => adaptiveHeuristicsUI,
       getParticipationManager: () => ParticipationManager,
+      getTrainingModule: () => trainingModule,
       CONFIG
     });
 
@@ -924,7 +957,8 @@ const loadedPolicyInfo = null;
       getAgentColorRGB,
       getAgentTrailsContainer: () => agentTrailsContainer,
       getAgentsContainer: () => agentsContainer,
-      getWorld: () => World  // Callback pattern - World is referenced later when needed
+      getWorld: () => World,  // Callback pattern - World is referenced later when needed
+      getTrainingModule: () => trainingModule  // For adaptive heuristics access
     });
     const terrainHeightFn = typeof getTerrainHeight === 'function'
       ? (x, y) => getTerrainHeight(x, y)
@@ -1107,7 +1141,7 @@ const loadedPolicyInfo = null;
     // This trainingModule creation MUST happen AFTER World is created above.
     // DO NOT move this code before World initialization!
     // ========================================================================
-    const trainingModule = createTrainingModule({
+    trainingModule = createTrainingModule({
       world: World,
       config: CONFIG,
       trail: Trail,
@@ -1304,7 +1338,7 @@ const loadedPolicyInfo = null;
         const simLines = [
           `⚙️  SIMULATION`,
           `   mode:      ${CONFIG.autoMove ? "AUTO" : "MANUAL"}`,
-          `   learning:  ${trainingModule.getLearningMode() === 'train' ? "TRAINING" : "PLAY"}`,
+          `   learning:  ${trainingModule?.getLearningMode?.() === 'train' ? "TRAINING" : "PLAY"}`,
           `   tick:      ${globalTick}`,
           `   χ earned:  ${World.collected}`
         ];
@@ -1899,6 +1933,38 @@ const loadedPolicyInfo = null;
             break;
           }
         }
+
+        // Adaptive heuristics learning during normal gameplay
+        const adaptiveHeuristics = trainingModule?.getAdaptiveHeuristics?.();
+        if (adaptiveHeuristics?.isActive) {
+          // Compute reward based on agent state
+          // Positive rewards: chi, recent resource collection
+          // Negative rewards: hunger, frustration
+          const chiReward = bundle.chi * 0.1;
+          const hungerPenalty = (bundle.hunger || 0) * -0.5;
+          const frustrationPenalty = (bundle.frustration || 0) * -0.3;
+          const reward = chiReward + hungerPenalty + frustrationPenalty;
+
+          // Find nearest visible resource for observation
+          let nearestResource = null;
+          let nearestDist = Infinity;
+          for (const res of World.resources) {
+            if (!res.visible) continue;
+            const dx = res.x - bundle.x;
+            const dy = res.y - bundle.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearestResource = res;
+            }
+          }
+
+          // Build observation for learning
+          const observation = buildObservation(bundle, nearestResource, Trail, globalTick, World.resources);
+
+          // Learn from this experience
+          trainingModule.learnAdaptiveHeuristics(reward, observation);
+        }
       });
 
       World.resources.forEach((res) => res.update(dt));
@@ -1925,21 +1991,21 @@ const loadedPolicyInfo = null;
           const excess = World.resources.length - maxResources;
           const removed = World.resources.splice(-excess, excess);
           removed.forEach(res => res.destroy());
-          console.log(`🔪 Culled ${excess} excess resources due to competition (${aliveCount} agents)`);
+          // console.log(`🔪 Culled ${excess} excess resources due to competition (${aliveCount} agents)`);
         }
 
         const seedLocation = attemptSeedDispersal(World.resources, FertilityField, globalTick, dt, aliveCount);
         if (seedLocation && World.resources.length < maxResources) {
           const newResource = new Resource(seedLocation.x, seedLocation.y, CONFIG.resourceRadius);
           World.resources.push(newResource);
-          console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
+          // console.log(`🌱 Seed sprouted at (${Math.round(seedLocation.x)}, ${Math.round(seedLocation.y)}) | Fertility: ${seedLocation.fertility.toFixed(2)}`);
         }
 
         const growthLocation = attemptSpontaneousGrowth(FertilityField, dt, aliveCount, canvasWidth, canvasHeight);
         if (growthLocation && World.resources.length < maxResources) {
           const newResource = new Resource(growthLocation.x, growthLocation.y, CONFIG.resourceRadius);
           World.resources.push(newResource);
-          console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
+          // console.log(`🌿 Spontaneous growth at (${Math.round(growthLocation.x)}, ${Math.round(growthLocation.y)}) | Fertility: ${growthLocation.fertility.toFixed(2)}`);
         }
 
         FertilityField.update(dt, aliveCount, globalTick);
@@ -1980,7 +2046,7 @@ const loadedPolicyInfo = null;
           if (idx >= 0 && idx < World.bundles.length) {
             const removed = World.bundles.splice(idx, 1)[0];
             removed.destroy();
-            console.log(`💀 Agent ${removed.id} fully decayed and removed | Pop: ${World.bundles.length}`);
+            // console.log(`💀 Agent ${removed.id} fully decayed and removed | Pop: ${World.bundles.length}`);
           }
         }
       } catch (err) {
@@ -2050,7 +2116,7 @@ const loadedPolicyInfo = null;
       }
 
       if (inputState.showScentGradient && CONFIG.scentGradient.enabled) {
-        visualizeScentHeatmap(ctx, World.resources, 40);
+        // visualizeScentHeatmap(ctx, World.resources, 40); // Removed green background
         visualizeScentGradient(ctx, World.resources, 80);
       }
 
@@ -2116,7 +2182,7 @@ const loadedPolicyInfo = null;
 
     startSimulation({
       shouldStep: () => !World.paused,
-      getMode: () => trainingModule.getLearningMode(),
+      getMode: () => trainingModule?.getLearningMode?.() || 'play',
       getPhases: () => simulationPhases,
       beginTick,
       endTick: (context) => {
@@ -2133,7 +2199,10 @@ const loadedPolicyInfo = null;
       }
     });
 
-    const initTrainingUI = () => trainingModule.initializeTrainingUI();
+    // Initialize Adaptive Heuristics UI
+    const adaptiveHeuristicsUI = new AdaptiveHeuristicsUI(document.body, trainingModule);
+
+    const initTrainingUI = () => trainingModule?.initializeTrainingUI?.();
 
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initTrainingUI, { once: true });

@@ -145,7 +145,7 @@ export function createWorld(context) {
               CONFIG.resourceScaleMaximum
             )
           );
-          console.log(`🌱 Initial resources: ${initialCount} (${startingAgents} starting agents)`);
+          // console.log(`🌱 Initial resources: ${initialCount} (${startingAgents} starting agents)`);
         } else {
           // Legacy: start with abundant resources, will decline to stable level
           initialCount = Math.floor(
