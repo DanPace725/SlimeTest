@@ -510,23 +510,23 @@ export const CONFIG = {
 
   // === Participation Modes (channel gating & falloff) ===
   participation: {
-    enabled: false,
+    enabled: true,
     debugLog: false,
     maxForceFraction: 0.35,  // Max participation force as fraction of agent speed (0.35 = 35%)
     visualRadiusScale: 1.0,  // Scale factor for visual circles (1.0 = actual radius, 0.2 = 20% size)
     modes: {
       resource: {
-        strength: 1.0,
+        strength: 8.0,
         decay: 1.0,
         radius: 80
       },
       distress: {
-        strength: 1.35,
+        strength: 12.0,
         decay: 1.2,
         radius: 100
       },
       bond: {
-        strength: 0.85,
+        strength: 6.0,
         decay: 0.9,
         radius: 70
       }

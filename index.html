@@ -155,6 +155,139 @@
       background: rgba(0, 255, 136, 0.1);
       border-color: rgba(0, 255, 136, 0.6);
     }
+
+    /* Quick Start Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.hidden {
+      display: none;
+    }
+    .modal-content {
+      background: rgba(0, 0, 0, 0.95);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 8px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      font-family: ui-mono, monospace;
+      color: #00ff88;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+      background: rgba(0, 0, 0, 0.9);
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: normal;
+      color: #00ff88;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #00ff88;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    .close-btn:hover {
+      background: rgba(0, 255, 136, 0.1);
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .quickstart-section {
+      margin-bottom: 20px;
+    }
+    .quickstart-section h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      font-weight: normal;
+      color: #4dffaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .quickstart-section p {
+      margin: 0 0 10px 0;
+      line-height: 1.5;
+      color: #88ffbb;
+    }
+    .interaction-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .interaction-item {
+      background: rgba(0, 255, 136, 0.05);
+      border: 1px solid rgba(0, 255, 136, 0.2);
+      border-radius: 4px;
+      padding: 8px;
+    }
+    .interaction-key {
+      font-weight: bold;
+      color: #00ff88;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .interaction-desc {
+      color: #88ffbb;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .quickstart-section ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .quickstart-section li {
+      margin-bottom: 5px;
+      color: #88ffbb;
+    }
+    .quickstart-section strong {
+      color: #00ff88;
+    }
+    .quickstart-footer {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(0, 255, 136, 0.2);
+      text-align: center;
+    }
+    .quickstart-footer p {
+      font-size: 12px;
+      color: #66ffb3;
+      margin: 0;
+    }
+    .quickstart-footer a {
+      color: #00ff88;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .quickstart-footer a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -163,6 +296,11 @@
       <h1>Essence Engine</h1>
     </div>
     <div id="top-links">
+      <button id="quickstart-btn" class="link-button">
+        <span>🚀</span>
+        <span>Quick Start</span>
+      </button>
+      <div class="hotkey-divider" style="width: 1px; height: 20px; background: rgba(0, 255, 136, 0.3);"></div>
       <a href="https://github.com/DanPace725/EssenceEngine" target="_blank" class="link-button">
         <span>📚</span>
         <span>GitHub</span>
@@ -174,6 +312,68 @@
       </a>
     </div>
   </div>
+
+  <!-- Quick Start Modal -->
+  <div id="quickstart-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🚀 Essence Engine Quick Start</h2>
+        <button id="close-modal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="quickstart-section">
+          <h3>What is this?</h3>
+          <p>A browser-based sandbox for exploring emergent behavior in swarms of intelligent agents. Watch simple agents learn to navigate, forage, and evolve complex behaviors through reinforcement learning.</p>
+        </div>
+
+        <div class="quickstart-section">
+          <h3>Key Interactions</h3>
+          <div class="interaction-grid">
+            <div class="interaction-item">
+              <div class="interaction-key">🖱️ Left Click + Drag</div>
+              <div class="interaction-desc">Guide agents toward resources</div>
+            </div>
+            <div class="interaction-item">
+              <div class="interaction-key">Shift + Click</div>
+              <div class="interaction-desc">Create distress signals</div>
+            </div>
+            <div class="interaction-item">
+              <div class="interaction-key">Alt + Click</div>
+              <div class="interaction-desc">Gentle bonding forces</div>
+            </div>
+            <div class="interaction-item">
+              <div class="interaction-key">Space</div>
+              <div class="interaction-desc">Pause/resume simulation</div>
+            </div>
+            <div class="interaction-item">
+              <div class="interaction-key">L</div>
+              <div class="interaction-desc">Open training UI</div>
+            </div>
+            <div class="interaction-item">
+              <div class="interaction-key">O</div>
+              <div class="interaction-desc">Configuration panel</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quickstart-section">
+          <h3>Visual Layers</h3>
+          <p>Toggle different overlays to understand what's happening:</p>
+          <ul>
+            <li><strong>G</strong> - Scent gradients</li>
+            <li><strong>P</strong> - Fertility maps</li>
+            <li><strong>T</strong> - Agent trails</li>
+            <li><strong>M</strong> - Mitosis (reproduction)</li>
+          </ul>
+        </div>
+
+        <div class="quickstart-footer">
+          <p>For detailed guides and advanced features, check the <a href="https://github.com/DanPace725/EssenceEngine" target="_blank">GitHub repository</a> or join the <a href="https://github.com/DanPace725/EssenceEngine/discussions/100" target="_blank">community discussions</a>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="hud-container"></div>
   <div id="dashboard-container" class="hidden"></div>
   <div id="hotkey-strip">
@@ -203,6 +403,41 @@
     <div class="hotkey-item"><span class="hotkey-key">O</span><span class="hotkey-desc">Config Panel</span></div>
   </div>
   <canvas id="view"></canvas>
+
+  <!-- Quick Start Modal JavaScript -->
+  <script>
+    // Quick start modal functionality
+    const quickstartBtn = document.getElementById('quickstart-btn');
+    const quickstartModal = document.getElementById('quickstart-modal');
+    const closeModalBtn = document.getElementById('close-modal');
+
+    function showModal() {
+      quickstartModal.classList.remove('hidden');
+    }
+
+    function hideModal() {
+      quickstartModal.classList.add('hidden');
+    }
+
+    // Event listeners
+    quickstartBtn.addEventListener('click', showModal);
+    closeModalBtn.addEventListener('click', hideModal);
+
+    // Close modal when clicking outside
+    quickstartModal.addEventListener('click', (e) => {
+      if (e.target === quickstartModal) {
+        hideModal();
+      }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !quickstartModal.classList.contains('hidden')) {
+        hideModal();
+      }
+    });
+  </script>
+
   <script type="module" src="/app.js"></script>
 </body>
 </html>

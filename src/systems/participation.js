@@ -390,7 +390,7 @@ const resolvePointerMode = (payload) => {
   if (modifiers.alt || modifiers.ctrl || payload?.button === 1) {
     return 'bond';
   }
-  if (modifiers.shift || modifiers.meta || payload?.button === 2) {
+  if (modifiers.shift || modifiers.meta) {
     return 'distress';
   }
   return 'resource';

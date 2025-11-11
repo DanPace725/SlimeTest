@@ -29,6 +29,8 @@ Update the TC docs to show how the genome runtime plugs into the existing schedu
 
 Note any signal-field touchpoints or analytics impacts using the channel design guardrails, and capture baseline performance expectations alongside the current TC telemetry notes.
 
+Please look through the codebase and the tc folder for reference and begin working on this task please. 
+
 Step one: 
 Breakdown of “Nail down the minimal genome contract”
 Task 1: Inventory genome-visible agent state
