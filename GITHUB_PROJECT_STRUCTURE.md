@@ -1,4 +1,4 @@
-# GitHub Project Structure for Essence Engine
+# GitHub Project Structure for Emergence Engine
 
 *Proposed organization for Future Directions development*
 
@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-**Name:** Essence Engine Evolution Roadmap  
+**Name:** Emergence Engine Evolution Roadmap  
 **Type:** GitHub Project Board (Table/Board view)  
 **Purpose:** Track development from proof-of-concept to sophisticated emergence platform
 
@@ -1688,7 +1688,7 @@ Interactive demos and guided explorations for teaching emergence.
 **Type:** `type:experiment`
 
 **Description:**
-Demonstrate using Essence Engine for game NPC behavior.
+Demonstrate using Emergence Engine for game NPC behavior.
 
 **Features:**
 - Export agent behaviors to game engine

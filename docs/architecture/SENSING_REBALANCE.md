@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Sensing System Rebalance - Option 2 (Moderate)"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.727874Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Sensing System Rebalance - Option 2 (Moderate)

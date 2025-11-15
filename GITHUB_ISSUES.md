@@ -1,6 +1,6 @@
-# Essence Engine - GitHub Issues
+# Emergence Engine - GitHub Issues
 
-This document contains a comprehensive list of issues, improvements, and technical debt identified during a code review of the Essence Engine project. Each issue is formatted for easy copy-paste into GitHub Issues.
+This document contains a comprehensive list of issues, improvements, and technical debt identified during a code review of the Emergence Engine project. Each issue is formatted for easy copy-paste into GitHub Issues.
 
 ---
 
@@ -88,7 +88,7 @@ The project currently has no `package.json` file, making it unclear what depende
 Create a `package.json` with:
 ```json
 {
-  "name": "essence-engine",
+  "name": "emergence-engine",
   "version": "0.6.0",
   "type": "module",
   "description": "Browser-based sandbox for emergent agent behavior",

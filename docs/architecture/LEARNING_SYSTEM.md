@@ -1,15 +1,15 @@
 <!-- ormd:0.1 -->
 ---
-title: "Essence Engine Learning System"
-authors: ["Essence Engine Team"]
+title: "Emergence Engine Learning System"
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.725597Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
-# Essence Engine Learning System
+# Emergence Engine Learning System
 
 ## 🎯 What We've Built
 

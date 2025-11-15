@@ -9,14 +9,14 @@ links:
     rel: references
     to: "docs/ormd_schema.md"
 status: "complete"
-description: "Summary of ORMD schema migration applied to Essence Engine documentation"
+description: "Summary of ORMD schema migration applied to Emergence Engine documentation"
 ---
 
 # ORMD Schema Migration Summary
 
 ## Overview
 
-All existing Markdown documentation in the Essence Engine project has been successfully updated to use the **Open Relational Markdown (ORMD) 0.1** schema format.
+All existing Markdown documentation in the Emergence Engine project has been successfully updated to use the **Open Relational Markdown (ORMD) 0.1** schema format.
 
 ## What Was Updated
 
@@ -90,12 +90,12 @@ Every updated file now contains:
 <!-- ormd:0.1 -->
 ---
 title: "Document Title"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.725597Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 ```
 
@@ -107,7 +107,7 @@ description: "Essence Engine documentation"
 
 2. **YAML Front Matter**
    - `title`: Extracted from first heading or filename
-   - `authors`: Set to "Essence Engine Team" consistently
+   - `authors`: Set to "Emergence Engine Team" consistently
    - `dates`: Creation timestamp in ISO 8601 format
    - `links`: Array of relational links (empty for auto-generated files)
    - `status`: Set to "complete" by default

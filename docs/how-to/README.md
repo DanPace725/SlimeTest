@@ -1,7 +1,7 @@
 <!-- ormd:0.1 -->
 ---
 title: "How-To Guides"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T00:00:00Z'
 links:
@@ -20,7 +20,7 @@ description: "User-facing guides explaining how to use features, configure syste
 
 # How-To Guides
 
-This directory contains user-facing guides that explain **how to use** various features and systems in Essence Engine.
+This directory contains user-facing guides that explain **how to use** various features and systems in Emergence Engine.
 
 These guides are written from the operator/user perspective and focus on:
 - Getting started with features

@@ -1,5 +1,5 @@
 {
-  "name": "essence-engine",
+  "name": "emergence-engine",
   "version": "1.0.0",
   "description": "A simulation engine for emergent behaviors",
   "main": "app.js",

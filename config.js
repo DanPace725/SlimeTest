@@ -1,4 +1,4 @@
-// Essence Engine Configuration
+// Emergence Engine Configuration
 // Organized config for physics, trails, AI, and learning
 
 // Note: Node.js filesystem imports are commented out for browser compatibility
@@ -1316,7 +1316,7 @@ function buildConfigPanel(){
   });
   wrap.innerHTML = `
   <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-    <strong style="font-size:13px;">Essence Engine Config</strong>
+    <strong style="font-size:13px;">Emergence Engine Config</strong>
     <span id="cfg-dirty" title="Modified from loaded profile" style="color:#ffd166; display:none; margin-left:4px;">●</span>
     <button id="cfg-revert"  title="Reset sliders to last loaded profile">Revert</button>
     <button id="cfg-default" title="Reset sliders to boot-time defaults">Defaults</button>

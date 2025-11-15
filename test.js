@@ -1,4 +1,4 @@
-// Essence Engine v0.1 — one bundle, one resource, minimal movement, honest χ.
+// Emergence Engine v0.1 — one bundle, one resource, minimal movement, honest χ.
 // Keys: [←→↑↓]/[WASD]=move  [Space]=pause  [R]=reset  [C]=+5χ
 
 (() => {

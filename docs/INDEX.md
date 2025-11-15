@@ -1,7 +1,7 @@
 <!-- ormd:0.1 -->
 ---
 title: "Documentation Index"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T00:00:00Z'
 links:
@@ -12,12 +12,12 @@ links:
     rel: defines
     to: "#technical-documentation-architecture"
 status: "complete"
-description: "Central index for Essence Engine documentation covering user guides and technical architecture"
+description: "Central index for Emergence Engine documentation covering user guides and technical architecture"
 ---
 
 # Documentation Index
 
-This index provides an overview of the Essence Engine documentation structure. Documentation is organized into two main categories:
+This index provides an overview of the Emergence Engine documentation structure. Documentation is organized into two main categories:
 
 - **[How-To Guides](how-to/README.md)** - User-facing guides ("How do I use this?")
 - **[Architecture Documentation](architecture/README.md)** - Technical/implementation docs ("How does this work under the hood?")
@@ -58,7 +58,7 @@ The codebase has been refactored into a modular structure:
 
 ## Legacy & Archive
 
-Outdated documentation has been moved to the [archive directory](archive/README.md) for historical reference. These documents may not reflect the current state of Essence Engine.
+Outdated documentation has been moved to the [archive directory](archive/README.md) for historical reference. These documents may not reflect the current state of Emergence Engine.
 
 ## TC Documentation
 

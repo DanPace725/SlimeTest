@@ -2,7 +2,7 @@
 
 ## Quick Summary
 
-Your Essence Engine simulation now trains **BOTH agents simultaneously** using a shared policy!
+Your Emergence Engine simulation now trains **BOTH agents simultaneously** using a shared policy!
 
 ---
 

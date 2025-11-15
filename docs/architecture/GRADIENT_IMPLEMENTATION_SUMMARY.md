@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Scent Gradient Implementation Summary"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.724973Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Scent Gradient Implementation Summary
@@ -32,7 +32,7 @@ description: "Essence Engine documentation"
 
 ## ✅ What Was Implemented
 
-I've successfully implemented a comprehensive **scent gradient reward system** for your Essence Engine simulation. Here's what's been added:
+I've successfully implemented a comprehensive **scent gradient reward system** for your Emergence Engine simulation. Here's what's been added:
 
 ### 1. 🌸 Scent Gradient Field System
 

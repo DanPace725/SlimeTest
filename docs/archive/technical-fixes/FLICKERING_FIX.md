@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Resource Flickering Fix"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.724682Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Resource Flickering Fix

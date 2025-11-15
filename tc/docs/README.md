@@ -1,6 +1,6 @@
 # TC Documentation
 
-This directory contains documentation related to the Turing Complete (TC) features in Essence Engine.
+This directory contains documentation related to the Turing Complete (TC) features in Emergence Engine.
 
 ## Notes
 

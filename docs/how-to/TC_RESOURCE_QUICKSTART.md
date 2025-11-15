@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Quick Start: TC-Resource Integration"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.733754Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Quick Start: TC-Resource Integration

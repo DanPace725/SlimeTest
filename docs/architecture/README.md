@@ -1,7 +1,7 @@
 <!-- ormd:0.1 -->
 ---
 title: "Architecture Documentation"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T00:00:00Z'
 links:
@@ -23,7 +23,7 @@ description: "Technical documentation explaining system architecture, design dec
 
 # Architecture Documentation
 
-This directory contains technical documentation that explains **how things work under the hood** in Essence Engine.
+This directory contains technical documentation that explains **how things work under the hood** in Emergence Engine.
 
 These documents focus on:
 - System architecture and design decisions

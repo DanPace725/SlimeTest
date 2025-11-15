@@ -1,4 +1,4 @@
-// Cross-Entropy Method (CEM) Learner for Essence Engine
+// Cross-Entropy Method (CEM) Learner for Emergence Engine
 // Simple evolutionary algorithm for training policies
 
 import { CONFIG } from './config.js';

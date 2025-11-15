@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "TC Overlay Fix - Issue Analysis  Resolution"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.728594Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # TC Overlay Fix - Issue Analysis & Resolution

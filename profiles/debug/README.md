@@ -12,7 +12,7 @@ Debug profiles help you test individual features by:
 
 ## Quick Start
 
-1. Open Essence Engine in your browser
+1. Open Emergence Engine in your browser
 2. Press `O` to open the config panel
 3. Click the profile dropdown
 4. Look for profiles starting with "Debug:"

@@ -286,7 +286,7 @@ Your content goes here.
 
 ## ORMD Schema
 
-This document outlines the schema for structuring ORMD files used in the Essence Engine. It provides a detailed description of the fields, their types, and any constraints that apply.
+This document outlines the schema for structuring ORMD files used in the Emergence Engine. It provides a detailed description of the fields, their types, and any constraints that apply.
 
 ## Schema Structure
 - **Field Name**: Description of the field and its purpose.
@@ -302,7 +302,7 @@ This document outlines the schema for structuring ORMD files used in the Essence
 ```
 
 ## Notes
-- Ensure that all ORMD files adhere to this schema for compatibility with the Essence Engine.
+- Ensure that all ORMD files adhere to this schema for compatibility with the Emergence Engine.
 - Update this document as new fields or changes are introduced to the schema.
 
 ## Additional Resources

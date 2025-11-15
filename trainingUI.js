@@ -1,4 +1,4 @@
-// Training UI for Essence Engine Learning System
+// Training UI for Emergence Engine Learning System
 // Provides controls and visualization for training
 
 export class TrainingUI {

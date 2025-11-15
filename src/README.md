@@ -1,6 +1,6 @@
 # src
 
-This directory contains the modularized source code for the Essence Engine simulation. The codebase has been refactored to separate concerns into distinct modules:
+This directory contains the modularized source code for the Emergence Engine simulation. The codebase has been refactored to separate concerns into distinct modules:
 
 ## Directory Structure
 
