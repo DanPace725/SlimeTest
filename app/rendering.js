@@ -82,8 +82,14 @@ export function drawLineageLinks(ctx, lineageLinks, bundles, globalTick, CONFIG)
 
         if (!parent || !child) return;
 
-        const dx = child.x - parent.x;
-        const dy = child.y - parent.y;
+        // Use interpolated visual positions to match agent rendering
+        const parentX = parent.visualX !== undefined ? parent.visualX : parent.x;
+        const parentY = parent.visualY !== undefined ? parent.visualY : parent.y;
+        const childX = child.visualX !== undefined ? child.visualX : child.x;
+        const childY = child.visualY !== undefined ? child.visualY : child.y;
+
+        const dx = childX - parentX;
+        const dy = childY - parentY;
         const dist = Math.hypot(dx, dy);
 
         if (dist > maxDistance) return;
@@ -97,8 +103,8 @@ export function drawLineageLinks(ctx, lineageLinks, bundles, globalTick, CONFIG)
         ctx.globalAlpha = opacity;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(parent.x, parent.y);
-        ctx.lineTo(child.x, child.y);
+        ctx.moveTo(parentX, parentY);
+        ctx.lineTo(childX, childY);
         ctx.stroke();
     });
 
@@ -262,8 +268,13 @@ export function renderFrame(ctx, world, CONFIG, systems) {
             ctx.strokeStyle = getAgentColor(L.aId, true);
             ctx.lineWidth = Math.max(1, L.strength * 2);
             ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
+            // Use interpolated visual positions to match agent rendering
+            const aX = a.visualX !== undefined ? a.visualX : a.x;
+            const aY = a.visualY !== undefined ? a.visualY : a.y;
+            const bX = b.visualX !== undefined ? b.visualX : b.x;
+            const bY = b.visualY !== undefined ? b.visualY : b.y;
+            ctx.moveTo(aX, aY);
+            ctx.lineTo(bX, bY);
             ctx.stroke();
         });
         ctx.restore();
@@ -274,10 +285,15 @@ export function renderFrame(ctx, world, CONFIG, systems) {
         drawLineageLinks(ctx, world.lineageLinks, world.bundles, systems.globalTick, CONFIG);
     }
 
-    // Draw all agents
+    // Draw all agents (updates their PixiJS graphics)
     world.bundles.forEach(bundle => bundle.draw());
 
-    // Draw HUD overlay
+    // Render PixiJS stage and composite with canvas BEFORE overlays
+    // This ensures HUD and other overlays appear on top of agents/resources
+    systems.pixiApp.render();
+    ctx.drawImage(systems.pixiApp.view, 0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // Draw HUD overlay (drawn after PixiJS so it appears on top)
     if (systems.drawHUD) {
         systems.drawHUD(ctx, world, systems);
     }
@@ -286,8 +302,4 @@ export function renderFrame(ctx, world, CONFIG, systems) {
     if (CONFIG.tcResourceIntegration?.showOverlay && window.rule110Stepper) {
         systems.drawRule110Overlay(ctx, window.rule110Stepper, ctx.canvas.width, ctx.canvas.height);
     }
-
-    // Render PixiJS stage and composite with canvas
-    systems.pixiApp.render();
-    ctx.drawImage(systems.pixiApp.view, 0, 0, ctx.canvas.width, ctx.canvas.height);
 }

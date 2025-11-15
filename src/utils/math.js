@@ -3,6 +3,8 @@ export const clamp = (value, min, max) => {
   return Math.max(min, Math.min(max, value));
 };
 
+export const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+
 export const mix = (a, b, t) => a + (b - a) * t;
 
 export const smoothstep = (edge0, edge1, x) => {

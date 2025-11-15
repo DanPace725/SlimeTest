@@ -1195,9 +1195,15 @@ let trainingModule = null;
         
         if (!parent || !child) return; // Skip if either doesn't exist
         
+        // Use interpolated visual positions to match agent rendering
+        const parentX = parent.visualX !== undefined ? parent.visualX : parent.x;
+        const parentY = parent.visualY !== undefined ? parent.visualY : parent.y;
+        const childX = child.visualX !== undefined ? child.visualX : child.x;
+        const childY = child.visualY !== undefined ? child.visualY : child.y;
+        
         // Calculate distance
-        const dx = child.x - parent.x;
-        const dy = child.y - parent.y;
+        const dx = childX - parentX;
+        const dy = childY - parentY;
         const dist = Math.hypot(dx, dy);
         
         // Skip if too far away
@@ -1214,8 +1220,8 @@ let trainingModule = null;
         ctx.globalAlpha = opacity;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(parent.x, parent.y);
-        ctx.lineTo(child.x, child.y);
+        ctx.moveTo(parentX, parentY);
+        ctx.lineTo(childX, childY);
         ctx.stroke();
       });
       
@@ -1284,6 +1290,33 @@ let trainingModule = null;
       const avgHunger = totalAgents
         ? World.bundles.reduce((sum, b) => sum + b.hunger, 0) / totalAgents
         : 0;
+      const mitosisBaselineEnabled = (CONFIG.mitosis?.baseline?.enabled !== false);
+      const mitosisStats = (() => {
+        if (!mitosisBaselineEnabled) return null;
+        let count = 0;
+        let probSum = 0;
+        const signals = { capacity: 0, strain: 0, pressure: 0, opportunity: 0, harmony: 0 };
+        World.bundles.forEach((b) => {
+          if (!b?.alive) return;
+          const baseline = b._mitosisState?.baseline;
+          if (!baseline?.signals) return;
+          count += 1;
+          probSum += baseline.probability ?? 0;
+          for (const key of Object.keys(signals)) {
+            signals[key] += baseline.signals[key] ?? 0;
+          }
+        });
+        if (count === 0) return null;
+        const avgSignals = Object.fromEntries(
+          Object.entries(signals).map(([k, v]) => [k, v / count])
+        );
+        return {
+          count,
+          probability: probSum / count,
+          signals: avgSignals,
+          threshold: CONFIG.mitosis?.baseline?.threshold ?? 0.5
+        };
+      })();
 
       let resourceSummary = `${World.resources.length}`;
       let resourceDetails = "";
@@ -1318,7 +1351,7 @@ let trainingModule = null;
         hudSections.push({
           color: "#88ffff",
           lines: [
-            `📊 ${aliveCount}/${totalAgents}  χ:${avgChi.toFixed(1)}  🌿:${resourceSummary}  tick:${globalTick}`
+            `📊 ${aliveCount}/${totalAgents}  χ:${avgChi.toFixed(1)}  🌿:${resourceSummary}  ${mitosisStats ? `🧫:${Math.round(mitosisStats.probability * 100)}% ` : ""}tick:${globalTick}`
           ]
         });
       } else {
@@ -1361,6 +1394,20 @@ let trainingModule = null;
           color: "#ffaa00",
           lines: resourceLines
         });
+
+        // Section 4: Mitosis baseline signals (averaged)
+        if (mitosisStats) {
+          const s = mitosisStats.signals;
+          hudSections.push({
+            color: "#ff9cf0",
+            lines: [
+              `🧫 MITOSIS`,
+              `   P: ${(mitosisStats.probability * 100).toFixed(0)}%  thr:${mitosisStats.threshold}`,
+              `   cap:${s.capacity.toFixed(2)} strain:${s.strain.toFixed(2)}`,
+              `   press:${s.pressure.toFixed(2)} opp:${s.opportunity.toFixed(2)} harm:${s.harmony.toFixed(2)}`
+            ]
+          });
+        }
 
         // Section 4: Status badges (visual checkmarks) - vertical layout
         hudSections.push({
@@ -2156,8 +2203,13 @@ let trainingModule = null;
           ctx.strokeStyle = color;
           ctx.lineWidth = Math.max(1, L.strength * 2);
           ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
+          // Use interpolated visual positions to match agent rendering
+          const aX = a.visualX !== undefined ? a.visualX : a.x;
+          const aY = a.visualY !== undefined ? a.visualY : a.y;
+          const bX = b.visualX !== undefined ? b.visualX : b.x;
+          const bY = b.visualY !== undefined ? b.visualY : b.y;
+          ctx.moveTo(aX, aY);
+          ctx.lineTo(bX, bY);
           ctx.stroke();
         }
         ctx.restore();
@@ -2169,17 +2221,17 @@ let trainingModule = null;
 
       World.bundles.forEach((bundle) => bundle.draw());
 
+      // Draw the PixiJS stage BEFORE overlays so HUD appears on top
+      // CRITICAL FIX: Draw PixiJS at logical size to account for DPR transform
+      // The context has setTransform(dpr, 0, 0, dpr, 0, 0), so we draw at logical coords
+      pixiApp.render();
+      ctx.drawImage(pixiApp.view, 0, 0, canvasWidth, canvasHeight);
+
       drawHUD();
 
       if (CONFIG.tcResourceIntegration?.showOverlay && window.rule110Stepper) {
         drawRule110Overlay(ctx, window.rule110Stepper, canvasWidth, canvasHeight);
       }
-
-      // Draw the PixiJS stage
-      // CRITICAL FIX: Draw PixiJS at logical size to account for DPR transform
-      // The context has setTransform(dpr, 0, 0, dpr, 0, 0), so we draw at logical coords
-      pixiApp.render();
-      ctx.drawImage(pixiApp.view, 0, 0, canvasWidth, canvasHeight);
     };
 
     startSimulation({

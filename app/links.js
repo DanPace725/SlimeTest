@@ -212,8 +212,13 @@ export class LinkSystem {
             ctx.strokeStyle = color;
             ctx.lineWidth = Math.max(1, L.strength * 2);
             ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
+            // Use interpolated visual positions to match agent rendering
+            const aX = a.visualX !== undefined ? a.visualX : a.x;
+            const aY = a.visualY !== undefined ? a.visualY : a.y;
+            const bX = b.visualX !== undefined ? b.visualX : b.x;
+            const bY = b.visualY !== undefined ? b.visualY : b.y;
+            ctx.moveTo(aX, aY);
+            ctx.lineTo(bX, bY);
             ctx.stroke();
         }
 

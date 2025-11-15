@@ -1,5 +1,6 @@
 import { TcRandom } from '../../tcStorage.js';
 import { clamp } from '../utils/math.js';
+import { computeBaselineMitosisProbability } from './mitosisController.js';
 
 const DEFAULT_HEADING_NOISE = Math.PI * 2;
 
@@ -7,11 +8,11 @@ const ensureRandom = (random) => ({
   random: typeof random?.random === 'function' ? random.random.bind(random) : Math.random
 });
 
-export function evaluateMitosisReadiness({ canBud, canMitosis }) {
+export function evaluateMitosisReadiness({ canBud, canMitosis, baseline }) {
   const mitosisReady = typeof canMitosis === 'function' ? Boolean(canMitosis()) : false;
   const buddingReady = typeof canBud === 'function' ? Boolean(canBud()) : false;
 
-  return { buddingReady, mitosisReady };
+  return { buddingReady, mitosisReady, baseline };
 }
 
 export function createMitosisSystem({
@@ -35,6 +36,19 @@ export function createMitosisSystem({
   const canvasWidth = () => getCanvasWidth();
   const canvasHeight = () => getCanvasHeight();
   const mitosisConfig = config.mitosis;
+
+  const evaluateBaseline = (parent) => {
+    try {
+      return computeBaselineMitosisProbability({
+        bundle: parent,
+        world: getWorld?.(),
+        config
+      });
+    } catch (error) {
+      console.warn('Baseline mitosis evaluation failed:', error?.message || error);
+      return null;
+    }
+  };
 
   function meetsPopulationLimits(_parent) {
     const world = getWorld();
@@ -158,14 +172,23 @@ export function createMitosisSystem({
   function attemptReproduction(parent) {
     if (!mitosisConfig.enabled) return null;
     if (canBud(parent)) return performBudding(parent);
-    if (canMitosis(parent)) return performMitosis(parent);
-    return null;
+
+    if (!canMitosis(parent)) return null;
+
+    const baseline = evaluateBaseline(parent);
+    if (baseline && rng() >= baseline.probability) {
+      return null;
+    }
+
+    return performMitosis(parent);
   }
 
   function evaluateReadiness(parent) {
+    const baseline = evaluateBaseline(parent);
     return evaluateMitosisReadiness({
       canBud: () => canBud(parent),
-      canMitosis: () => canMitosis(parent)
+      canMitosis: () => canMitosis(parent),
+      baseline
     });
   }
 
