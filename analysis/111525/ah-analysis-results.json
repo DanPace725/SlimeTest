@@ -1,0 +1,79 @@
+{
+  "timestamp": "2025-11-16T00:46:35.522Z",
+  "snapshots": [
+    {
+      "file": "adaptive-heuristics-1763250931030.json",
+      "timestamp": "2025-11-15T23:55:31.030Z",
+      "baselineReward": 4.6757587206108475,
+      "rewardStats": {
+        "average": 4.739807944839401,
+        "min": 2.8919529807292297,
+        "max": 7.371379281759209,
+        "std": 1.5017504922373666
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.1149105406451516,
+        "moveSpeedPxPerSec": 1.0756505517004034,
+        "exploreNoiseBase": 2.5369404127024393,
+        "exploreNoiseGain": 2.280783677252027,
+        "turnRateGain": 0.875383296926045,
+        "mitosisWCapacity": 1.0868322060137723,
+        "mitosisWStrain": 0.9347930777579428
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763251230762.json",
+      "timestamp": "2025-11-16T00:00:30.762Z",
+      "baselineReward": 4.5965526871732285,
+      "rewardStats": {
+        "average": 4.737602493546607,
+        "min": 1.5587817328457747,
+        "max": 8.248236325005447,
+        "std": 2.2758647324597465
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.506154958387728,
+        "moveSpeedPxPerSec": 1.1773355726244852,
+        "exploreNoiseBase": 2.9999972314491097,
+        "exploreNoiseGain": 2.9999976928742584,
+        "turnRateGain": 0.32249034825804324,
+        "mitosisWCapacity": 1.2851482867023107,
+        "mitosisWStrain": 0.8075255108664956
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763251703959.json",
+      "timestamp": "2025-11-16T00:08:23.959Z",
+      "baselineReward": 0.07712604866571977,
+      "rewardStats": {
+        "average": 0.17346950159131222,
+        "min": -0.7249726454394095,
+        "max": 0.7793421370343465,
+        "std": 0.2986464103289095
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.4269091026514955,
+        "moveSpeedPxPerSec": 1.2808513258278906,
+        "exploreNoiseBase": 3,
+        "exploreNoiseGain": 3,
+        "turnRateGain": 0.10644449793837871,
+        "mitosisWCapacity": 1.4436653106391408,
+        "mitosisWStrain": 0.5336807898544874
+      },
+      "trainingDataCount": 0
+    }
+  ],
+  "correlations": {
+    "resourceAttractionStrength": -0.33903253223638136,
+    "moveSpeedPxPerSec": -0.8759459068641993,
+    "exploreNoiseBase": -0.5129764661976639,
+    "exploreNoiseGain": -0.5129744062374043,
+    "turnRateGain": 0.7273954512651006,
+    "mitosisWCapacity": -0.8403544450490797,
+    "mitosisWStrain": 0.9551518406203374
+  },
+  "avgGradients": {},
+  "insights": []
+}

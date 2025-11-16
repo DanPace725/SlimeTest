@@ -1,7 +1,7 @@
 <!-- ormd:0.1 -->
 ---
-title: "Essence Engine Technical Documentation"
-authors: ["Essence Engine Team"]
+title: "Emergence Engine Technical Documentation"
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T00:00:00Z'
 links:
@@ -15,12 +15,12 @@ links:
     rel: defines
     to: "#the-trail-system"
 status: "complete"
-description: "Core mechanics breakdown of the Essence Engine simulation including simulation loop, agent mechanics, and trail system"
+description: "Core mechanics breakdown of the Emergence Engine simulation including simulation loop, agent mechanics, and trail system"
 ---
 
-# Essence Engine Technical Documentation
+# Emergence Engine Technical Documentation
 
-This document provides a technical breakdown of the core mechanics of the Essence Engine simulation.
+This document provides a technical breakdown of the core mechanics of the Emergence Engine simulation.
 
 ## Core Simulation Loop
 

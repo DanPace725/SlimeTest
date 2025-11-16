@@ -1222,6 +1222,20 @@ export function createBundleClass(context) {
     getCanvasHeight,
     getWorld,
     random: TcRandom,
+    getAdaptiveHeuristics: () => {
+      const trainingModule = typeof getTrainingModule === 'function' ? getTrainingModule() : null;
+      return trainingModule?.getAdaptiveHeuristics?.();
+    },
+    onReproduction: ({ parent, child, baseline, tick, mode }) => {
+      const trainingModule = typeof getTrainingModule === 'function' ? getTrainingModule() : null;
+      trainingModule?.registerMitosisEvent?.({
+        parentId: parent?.id,
+        childId: child?.id,
+        baseline,
+        tick,
+        mode: mode || 'mitosis'
+      });
+    },
     config: CONFIG,
     createChildBundle: ({ parent, x, y, chi, heading, eventLabel }) => {
       const world = worldRef();

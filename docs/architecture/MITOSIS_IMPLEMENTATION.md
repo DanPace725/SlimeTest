@@ -1,19 +1,19 @@
 <!-- ormd:0.1 -->
 ---
 title: "Mitosis System Implementation"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.725889Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Mitosis System Implementation
 
 ## 🧫 Overview
 
-I've successfully implemented an **automatic mitosis/reproduction system** for your Essence Engine simulation! Agents can now reproduce when they have sufficient energy, creating dynamic population growth and evolution.
+I've successfully implemented an **automatic mitosis/reproduction system** for your Emergence Engine simulation! Agents can now reproduce when they have sufficient energy, creating dynamic population growth and evolution.
 
 ---
 

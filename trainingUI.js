@@ -1,4 +1,4 @@
-// Training UI for Essence Engine Learning System
+// Training UI for Emergence Engine Learning System
 // Provides controls and visualization for training
 
 export class TrainingUI {
@@ -82,6 +82,11 @@ export class TrainingUI {
         <div>Signal Coherence: <span id="stat-signal-coherence">-</span></div>
         <div>Signal SNR: <span id="stat-signal-snr">-</span></div>
         <div>Signal Power: <span id="stat-signal-power">-</span></div>
+        <div style="margin-top:8px; color:#ff9cf0;">Mitosis (baseline):</div>
+        <div>Prob: <span id="stat-mito-prob">-</span> thr: <span id="stat-mito-thr">-</span></div>
+        <div>w1: <span id="stat-mito-w1">-</span> w2: <span id="stat-mito-w2">-</span> w3: <span id="stat-mito-w3">-</span></div>
+        <div>w4: <span id="stat-mito-w4">-</span> w5: <span id="stat-mito-w5">-</span></div>
+        <div>sig: <span id="stat-mito-sig">-</span> noise: <span id="stat-mito-noise">-</span> cost: <span id="stat-mito-cost">-</span></div>
       </div>
     `;
     this.panel.appendChild(statsSection);
@@ -431,6 +436,8 @@ export class TrainingUI {
     document.getElementById('stat-mean').textContent = stats.meanReward ?
       stats.meanReward.toFixed(2) : '-';
     document.getElementById('stat-status').textContent = stats.status || 'Idle';
+
+    this.updateMitosisStats(stats?.mitosis);
   }
 
   updateSignalStats(signal) {
@@ -457,6 +464,31 @@ export class TrainingUI {
     if (powerEl) {
       powerEl.textContent = totalPower.length ? totalPower.map((v, i) => `C${i}:${v.toFixed(1)}`).join(' ') : '-';
     }
+  }
+
+  updateMitosisStats(mitosis) {
+    const setVal = (id, value, digits = 2) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value === null || value === undefined ? '-' : Number(value).toFixed(digits);
+    };
+
+    if (!mitosis) {
+      ['stat-mito-prob','stat-mito-thr','stat-mito-w1','stat-mito-w2','stat-mito-w3','stat-mito-w4','stat-mito-w5','stat-mito-sig','stat-mito-noise','stat-mito-cost']
+        .forEach((id) => setVal(id, null, 0));
+      return;
+    }
+
+    setVal('stat-mito-prob', mitosis.avgProbability ?? mitosis.probability ?? null, 0);
+    setVal('stat-mito-thr', mitosis.threshold ?? null, 2);
+    setVal('stat-mito-w1', mitosis.weights?.capacity);
+    setVal('stat-mito-w2', mitosis.weights?.strain);
+    setVal('stat-mito-w3', mitosis.weights?.pressure);
+    setVal('stat-mito-w4', mitosis.weights?.opportunity);
+    setVal('stat-mito-w5', mitosis.weights?.harmony);
+    setVal('stat-mito-sig', mitosis.signalGain);
+    setVal('stat-mito-noise', mitosis.noise, 2);
+    setVal('stat-mito-cost', mitosis.costMultiplier);
   }
   
   // Show loaded policy info
@@ -647,6 +679,12 @@ export class AdaptiveHeuristicsUI {
 
         <div style="margin: 6px 0 4px 0;"><strong style="color: #88ffff;">Hunger Amps:</strong></div>
         <div>• Explore: <span id="ah-hunger-exp">1.00</span> • Frust: <span id="ah-hunger-frust">1.00</span> • Sense: <span id="ah-hunger-sense">1.00</span></div>
+
+        <div style="margin: 6px 0 4px 0;"><strong style="color: #ff9cf0;">Mitosis Baseline:</strong></div>
+        <div>• w1(cap): <span id="ah-mito-cap">1.00</span> • w2(strain): <span id="ah-mito-strain">1.00</span></div>
+        <div>• w3(pressure): <span id="ah-mito-press">1.00</span> • w4(opp): <span id="ah-mito-opp">1.00</span></div>
+        <div>• w5(harm): <span id="ah-mito-harm">1.00</span></div>
+        <div>• signal gain: <span id="ah-mito-signal">1.00</span> • noise: <span id="ah-mito-noise">1.00</span> • div cost: <span id="ah-mito-cost">1.00</span></div>
       </div>
     `;
     this.panel.appendChild(paramsSection);
@@ -805,6 +843,16 @@ export class AdaptiveHeuristicsUI {
     this.updateParam('ah-hunger-exp', m.hungerExplorationAmp);
     this.updateParam('ah-hunger-frust', m.hungerFrustrationAmp);
     this.updateParam('ah-hunger-sense', m.hungerSenseAmp);
+
+    // Mitosis baseline
+    this.updateParam('ah-mito-cap', m.mitosisWCapacity);
+    this.updateParam('ah-mito-strain', m.mitosisWStrain);
+    this.updateParam('ah-mito-press', m.mitosisWPressure);
+    this.updateParam('ah-mito-opp', m.mitosisWOpportunity);
+    this.updateParam('ah-mito-harm', m.mitosisWHarmony);
+    this.updateParam('ah-mito-signal', m.mitosisSignalSensitivity);
+    this.updateParam('ah-mito-noise', m.mitosisNoise);
+    this.updateParam('ah-mito-cost', m.mitosisDivisionCostMultiplier);
   }
 
   updateParam(id, value) {

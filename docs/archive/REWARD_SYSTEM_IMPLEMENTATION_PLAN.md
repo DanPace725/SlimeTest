@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Biologically-Grounded Adaptive Reward System - Implementation Plan"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.727214Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # 🧬 Biologically-Grounded Adaptive Reward System - Implementation Plan

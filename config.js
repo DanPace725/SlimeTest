@@ -1,4 +1,4 @@
-// Essence Engine Configuration
+// Emergence Engine Configuration
 // Organized config for physics, trails, AI, and learning
 
 // Note: Node.js filesystem imports are commented out for browser compatibility
@@ -107,7 +107,7 @@ export const CONFIG = {
   rewardChi: 10,                    // DEPRECATED: kept for backward compatibility
   resourceRadius: 10,
   bundleSize: 40,
-  startingAgents: 4,                // Number of agents to start the simulation with
+  startingAgents: 3,                // Number of agents to start the simulation with
 
   // === Turing Completeness Recording ===
   tc: {
@@ -388,6 +388,23 @@ export const CONFIG = {
     // Population dynamics
     respectCarryingCapacity: true,    // Integrate with resource ecology
     carryingCapacityMultiplier: 1.5,  // Allow population = resources × multiplier
+    
+    // Baseline mitosis controller
+    baseline: {
+      enabled: true,                  // Enable baseline probability gating
+      threshold: 0.5,                 // Logistic offset for probability
+      weights: {                      // Signal weights
+        capacity: 1.0,
+        strain: 1.0,
+        pressure: 1.0,
+        opportunity: 1.0,
+        harmony: 1.0,
+      },
+      pressureRadius: 180,            // px radius to measure local crowding
+      pressureMaxNeighbors: 6,        // Neighbor count that saturates crowding
+      opportunityRadius: 220,         // px radius to scan for resources/opportunity
+      opportunityMaxResources: 3,     // Resource count that maxes opportunity
+    },
     
     // Lineage visualization
     showLineage: false,                // Draw lines connecting parent to child
@@ -733,6 +750,17 @@ export const CONFIG_SCHEMA = {
     "mitosis.buddingRespectCooldown": { label: "Budding respects cooldown", type: "boolean" },
     "mitosis.respectCarryingCapacity": { label: "Respect carrying capacity", type: "boolean" },
     "mitosis.carryingCapacityMultiplier": { label: "Carrying capacity multiplier", min: 0, max: 10, step: 0.1 },
+    "mitosis.baseline.enabled": { label: "Baseline controller", type: "boolean" },
+    "mitosis.baseline.threshold": { label: "Baseline threshold", min: -2, max: 2, step: 0.01 },
+    "mitosis.baseline.weights.capacity": { label: "Weight: capacity", min: -4, max: 4, step: 0.1 },
+    "mitosis.baseline.weights.strain": { label: "Weight: strain", min: -4, max: 4, step: 0.1 },
+    "mitosis.baseline.weights.pressure": { label: "Weight: pressure", min: -4, max: 4, step: 0.1 },
+    "mitosis.baseline.weights.opportunity": { label: "Weight: opportunity", min: -4, max: 4, step: 0.1 },
+    "mitosis.baseline.weights.harmony": { label: "Weight: harmony", min: -4, max: 4, step: 0.1 },
+    "mitosis.baseline.pressureRadius": { label: "Pressure radius", min: 20, max: 800, step: 5 },
+    "mitosis.baseline.pressureMaxNeighbors": { label: "Pressure max neighbors", min: 1, max: 16, step: 1 },
+    "mitosis.baseline.opportunityRadius": { label: "Opportunity radius", min: 20, max: 800, step: 5 },
+    "mitosis.baseline.opportunityMaxResources": { label: "Opportunity max resources", min: 1, max: 10, step: 1 },
     "mitosis.showLineage": { label: "Show lineage", type: "boolean" },
     "mitosis.lineageMaxDistance": { label: "Lineage max distance", min: 0, max: 20000, step: 10 },
     "mitosis.lineageFadeDuration": { label: "Lineage fade duration", min: 0, max: 60000, step: 10 },
@@ -1001,6 +1029,17 @@ const CONFIG_HINTS = {
   "mitosis.buddingRespectCooldown": "Make budding obey mitosis cooldown.",
   "mitosis.respectCarryingCapacity": "Limit reproduction based on ecology capacity.",
   "mitosis.carryingCapacityMultiplier": "Multiplier applied to ecology carrying capacity.",
+  "mitosis.baseline.enabled": "Use baseline mitosis probability controller instead of deterministic reproduction.",
+  "mitosis.baseline.threshold": "Offset applied before sigmoid; higher means harder to divide.",
+  "mitosis.baseline.weights.capacity": "Weight for capacity (energy/size proxy).",
+  "mitosis.baseline.weights.strain": "Weight for strain (stress/hunger/frustration).",
+  "mitosis.baseline.weights.pressure": "Weight for crowding pressure (lower pressure = higher chance).",
+  "mitosis.baseline.weights.opportunity": "Weight for opportunity (nearby resources).",
+  "mitosis.baseline.weights.harmony": "Weight for harmony (global coherence/field alignment).",
+  "mitosis.baseline.pressureRadius": "Radius to measure local crowding for mitosis baseline.",
+  "mitosis.baseline.pressureMaxNeighbors": "Neighbor count that saturates crowding pressure.",
+  "mitosis.baseline.opportunityRadius": "Radius to scan for nearby resources in baseline.",
+  "mitosis.baseline.opportunityMaxResources": "Resource count that maxes opportunity signal.",
   "mitosis.showLineage": "Render visual lineage links between kin.",
   "mitosis.lineageMaxDistance": "Longest lineage line to draw.",
   "mitosis.lineageFadeDuration": "Ticks before lineage lines fade away.",
@@ -1316,7 +1355,7 @@ function buildConfigPanel(){
   });
   wrap.innerHTML = `
   <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-    <strong style="font-size:13px;">Essence Engine Config</strong>
+    <strong style="font-size:13px;">Emergence Engine Config</strong>
     <span id="cfg-dirty" title="Modified from loaded profile" style="color:#ffd166; display:none; margin-left:4px;">●</span>
     <button id="cfg-revert"  title="Reset sliders to last loaded profile">Revert</button>
     <button id="cfg-default" title="Reset sliders to boot-time defaults">Defaults</button>

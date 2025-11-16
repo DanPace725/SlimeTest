@@ -205,7 +205,7 @@ function exportToHTML(analyses, outputFile) {
   </style>
 </head>
 <body>
-  <h1>🧠 Essence Engine Policy Comparison Report</h1>
+  <h1>🧠 Emergence Engine Policy Comparison Report</h1>
   <p style="text-align: center; color: #888;">Generated: ${new Date().toLocaleString()}</p>
   
   <h2>📊 Summary Statistics</h2>
@@ -434,7 +434,7 @@ function main() {
   const args = process.argv.slice(2);
   
   if (args.length === 0 || args.includes('--help')) {
-    console.log('Essence Engine Policy Batch Analyzer\n');
+    console.log('Emergence Engine Policy Batch Analyzer\n');
     console.log('Usage:');
     console.log('  node policyBatchAnalyzer.js <policy1> <policy2> ... [options]\n');
     console.log('Options:');

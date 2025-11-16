@@ -14,7 +14,7 @@
   },
   "metadata": {
     "machineId": "unaryIncrementer",
-    "author": "Essence Engine"
+    "author": "Emergence Engine"
   },
   "snapshotSchema": "schemas/tc_tape_snapshot.schema.json"
 }

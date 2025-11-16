@@ -1,6 +1,6 @@
-# Contributing to Essence Engine
+# Contributing to Emergence Engine
 
-This guide captures the agreed upon coding conventions, the refactored module layout, and the test suite expectations for the modular Essence Engine stack. Use it as the checklist before opening a pull request or shipping new systems.
+This guide captures the agreed upon coding conventions, the refactored module layout, and the test suite expectations for the modular Emergence Engine stack. Use it as the checklist before opening a pull request or shipping new systems.
 
 ## Development Setup
 

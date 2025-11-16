@@ -1,6 +1,6 @@
 # Archive
 
-This directory contains outdated or legacy documentation that is kept for historical reference but may not reflect the current state of Essence Engine.
+This directory contains outdated or legacy documentation that is kept for historical reference but may not reflect the current state of Emergence Engine.
 
 ## Archived Documents
 

@@ -1,4 +1,4 @@
-// Controller Interface for Essence Engine AI
+// Controller Interface for Emergence Engine AI
 // Enables pluggable behavior: heuristic OR learned policy
 
 import { TcRandom, TcScheduler } from './tcStorage.js';

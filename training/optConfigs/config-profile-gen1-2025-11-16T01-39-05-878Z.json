@@ -1,0 +1,29 @@
+{
+  "name": "Optimized balanced (gen1)",
+  "description": "Auto-optimized config targeting balanced objective. Fitness: -0.279, Convergence: 58.6%",
+  "snapshot": {
+    "version": 1,
+    "ts": 1763257145881,
+    "params": {
+      "baseDecayPerSecond": 0.052968537666939444,
+      "moveSpeedPxPerSec": 117.75890694533919,
+      "moveCostPerSecond": 0.4011383966016174,
+      "sensing.radius": 122.07194312430143,
+      "sensing.costPerSecond": 0.05863972424305827,
+      "sensing.radiusRangeFactor": 1.8038832624491679,
+      "trail.emitPerSecond": 1.3979381095529098,
+      "trail.decayPerSecond": 0.05490802393711257,
+      "trail.attractionGain": 0.1685397524023681,
+      "trail.costPerSecond": 0.013289198320279978,
+      "frustration.riseRate": 0.03,
+      "frustration.fallRate": 0.08057650813085482,
+      "frustration.noiseGain": 1.381658891402549,
+      "frustration.hungerAmplify": 0.6733123641279067,
+      "link.formCost": 0.9653207226148106,
+      "link.maintPerSec": 0.009467446453338729,
+      "link.decayPerSec": 0.013712775799403144,
+      "link.strengthenPerUse": 0.05751026000399207,
+      "link.guidanceGain": 0.6682120860892569
+    }
+  }
+}

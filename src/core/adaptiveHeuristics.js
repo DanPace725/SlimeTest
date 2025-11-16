@@ -43,7 +43,17 @@ export class AdaptiveHeuristics {
       signalDistressGain: config.signal?.distressNoiseGain || 0.3,
 
       // Turn Rate
-      turnRateGain: config.aiTurnRateGain || 0.3
+      turnRateGain: config.aiTurnRateGain || 0.3,
+
+      // Mitosis baseline controller (weights + mild modifiers)
+      mitosisWCapacity: config.mitosis?.baseline?.weights?.capacity ?? 1.0,
+      mitosisWStrain: config.mitosis?.baseline?.weights?.strain ?? 1.0,
+      mitosisWPressure: config.mitosis?.baseline?.weights?.pressure ?? 1.0,
+      mitosisWOpportunity: config.mitosis?.baseline?.weights?.opportunity ?? 1.0,
+      mitosisWHarmony: config.mitosis?.baseline?.weights?.harmony ?? 1.0,
+      mitosisSignalSensitivity: 1.0,
+      mitosisNoise: 0.0,
+      mitosisDivisionCostMultiplier: 1.0
     };
 
     // Adaptive multipliers (learned parameters)
@@ -67,7 +77,15 @@ export class AdaptiveHeuristics {
       hungerSurgeAmp: 1.0,
       signalResourceGain: 1.0,
       signalDistressGain: 1.0,
-      turnRateGain: 1.0
+      turnRateGain: 1.0,
+      mitosisWCapacity: 1.0,
+      mitosisWStrain: 1.0,
+      mitosisWPressure: 1.0,
+      mitosisWOpportunity: 1.0,
+      mitosisWHarmony: 1.0,
+      mitosisSignalSensitivity: 1.0,
+      mitosisNoise: 1.0,
+      mitosisDivisionCostMultiplier: 1.0
     };
 
     // Learning state
@@ -265,6 +283,77 @@ export class AdaptiveHeuristics {
         this.adaptiveMultipliers[param] = Math.max(0.1, Math.min(3.0, this.adaptiveMultipliers[param]));
       }
     }
+  }
+
+  updateMultipliersSelective(gradients, keys, { min = 0.1, max = 3.0 } = {}) {
+    for (const key of keys) {
+      if (!this.adaptiveMultipliers.hasOwnProperty(key)) continue;
+      const gradient = gradients[key] ?? 0;
+      this.adaptiveMultipliers[key] += this.learningRate * gradient;
+      this.adaptiveMultipliers[key] = Math.max(min, Math.min(max, this.adaptiveMultipliers[key]));
+    }
+  }
+
+  getMitosisBaselineAdjustments() {
+    // Only expose limited knobs to AH; everything else remains fixed
+    const clampValue = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const weights = {
+      capacity: this.baseParams.mitosisWCapacity * this.adaptiveMultipliers.mitosisWCapacity,
+      strain: this.baseParams.mitosisWStrain * this.adaptiveMultipliers.mitosisWStrain,
+      pressure: this.baseParams.mitosisWPressure * this.adaptiveMultipliers.mitosisWPressure,
+      opportunity: this.baseParams.mitosisWOpportunity * this.adaptiveMultipliers.mitosisWOpportunity,
+      harmony: this.baseParams.mitosisWHarmony * this.adaptiveMultipliers.mitosisWHarmony
+    };
+    const signalSensitivity = clampValue(
+      this.baseParams.mitosisSignalSensitivity * this.adaptiveMultipliers.mitosisSignalSensitivity,
+      0.25,
+      2.5
+    );
+    const noise = clampValue(
+      this.baseParams.mitosisNoise * this.adaptiveMultipliers.mitosisNoise,
+      0,
+      1.5
+    );
+    const divisionCostMultiplier = clampValue(
+      this.baseParams.mitosisDivisionCostMultiplier * this.adaptiveMultipliers.mitosisDivisionCostMultiplier,
+      0.5,
+      2.0
+    );
+
+    return {
+      weights,
+      signalGains: {
+        capacity: signalSensitivity,
+        strain: signalSensitivity,
+        pressure: signalSensitivity,
+        opportunity: signalSensitivity,
+        harmony: signalSensitivity
+      },
+      noise,
+      divisionCostMultiplier
+    };
+  }
+
+  applyMitosisFeedback({ survived, harmonyDelta = 0, strainDelta = 0, pressureSpike = 0, reward = 0 }) {
+    if (!this.isActive) return;
+    const MITOSIS_PARAMS = [
+      'mitosisWCapacity',
+      'mitosisWStrain',
+      'mitosisWPressure',
+      'mitosisWOpportunity',
+      'mitosisWHarmony'
+    ];
+
+    const positive = (survived ? 1 : -0.5) + reward;
+    const gradients = {
+      mitosisWCapacity: positive * 0.2,
+      mitosisWOpportunity: positive * 0.2,
+      mitosisWHarmony: (harmonyDelta || 0) * 0.8,
+      mitosisWStrain: -Math.max(0, strainDelta) * 0.8,
+      mitosisWPressure: -Math.max(0, pressureSpike) * 0.8
+    };
+
+    this.updateMultipliersSelective(gradients, MITOSIS_PARAMS, { min: 0.25, max: 2.5 });
   }
 
   /**

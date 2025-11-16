@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Debug Mode Testing Guide"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.729547Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # Debug Mode Testing Guide
@@ -17,7 +17,7 @@ This guide explains how to use **debug profiles** to test individual features in
 
 ## Why Use Debug Profiles?
 
-When developing or troubleshooting Essence Engine, you often need to answer questions like:
+When developing or troubleshooting Emergence Engine, you often need to answer questions like:
 
 - "Is participation working? Are agents actually responding to my mouse clicks?"
 - "Does scent gradient affect navigation, or is something overriding it?"

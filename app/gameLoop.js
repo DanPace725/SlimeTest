@@ -136,6 +136,8 @@ export class GameLoop {
 
         // Adaptive heuristics learning in play mode
         this.updateAdaptiveLearning();
+
+        this.systems.trainingModule?.processMitosisFeedback?.(this.globalTick);
     };
 
     reproductionPhase = ({ mode }) => {

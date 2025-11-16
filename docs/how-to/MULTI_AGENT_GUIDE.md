@@ -1,19 +1,19 @@
 <!-- ormd:0.1 -->
 ---
 title: "Multi-Agent Learning Guide"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.730258Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # 🤝 Multi-Agent Learning Guide
 
 ## What Just Changed
 
-Your Essence Engine simulation now has **shared-policy multi-agent learning**!
+Your Emergence Engine simulation now has **shared-policy multi-agent learning**!
 
 ### Before (Single Agent)
 - Only Agent 1 trained

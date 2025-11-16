@@ -1,7 +1,7 @@
 <!-- ormd:0.1 -->
 ---
 title: "🎓 Training System User Guide"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T00:00:00Z'
 links:
@@ -15,7 +15,7 @@ links:
     rel: defines
     to: "#learning-curve"
 status: "complete"
-description: "User guide for training the Essence Engine with reinforcement learning, including CEM training workflow and policy management"
+description: "User guide for training the Emergence Engine with reinforcement learning, including CEM training workflow and policy management"
 ---
 
 # 🎓 Training System User Guide
@@ -33,7 +33,7 @@ description: "User guide for training the Essence Engine with reinforcement lear
 
 ## 🎉 Training is Now Fully Integrated!
 
-Your Essence Engine simulation now has a complete reinforcement learning system built in.
+Your Emergence Engine simulation now has a complete reinforcement learning system built in.
 
 ---
 

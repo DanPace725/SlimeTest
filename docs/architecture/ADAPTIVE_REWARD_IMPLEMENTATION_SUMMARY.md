@@ -1,12 +1,12 @@
 <!-- ormd:0.1 -->
 ---
 title: "Adaptive Reward System - Implementation Complete"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '2025-11-11T05:40:38.723188Z'
 links: []
 status: "complete"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 
 # ✅ Adaptive Reward System - Implementation Complete

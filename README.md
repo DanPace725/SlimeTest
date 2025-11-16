@@ -1,10 +1,10 @@
-# Essence Engine
+# Emergence Engine
 
 A browser-based sandbox for exploring emergent behavior in swarms of intelligent agents. Watch as simple agents learn to navigate, forage for resources, and evolve complex behaviors through reinforcement learning.
 
 ## Overview
 
-Essence Engine simulates resource-seeking agents (called "bundles") in a dynamic 2D environment. Agents navigate through a world with regenerating plant-based resources, leave trails, sense their surroundings, and can even reproduce. The simulation includes a built-in training system that uses the Cross-Entropy Method to evolve agent behaviors over multiple generations.
+Emergence Engine simulates resource-seeking agents (called "bundles") in a dynamic 2D environment. Agents navigate through a world with regenerating plant-based resources, leave trails, sense their surroundings, and can even reproduce. The simulation includes a built-in training system that uses the Cross-Entropy Method to evolve agent behaviors over multiple generations.
 
 ## Key Features
 

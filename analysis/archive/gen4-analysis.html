@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Policy Comparison Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 { color: #00ffaa; text-align: center; }
+    h2 { color: #00ccff; border-bottom: 2px solid #00ccff; padding-bottom: 10px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: #16213e;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    th {
+      background: #0f3460;
+      padding: 12px;
+      text-align: left;
+      color: #00ffaa;
+      font-weight: bold;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #2a2a4e;
+    }
+    tr:hover { background: #1f2b4e; }
+    .good { color: #00ff88; font-weight: bold; }
+    .warn { color: #ffaa00; font-weight: bold; }
+    .bad { color: #ff5555; font-weight: bold; }
+    .metric { font-size: 0.9em; color: #aaa; }
+    .chart-container {
+      background: #16213e;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .bar {
+      display: inline-block;
+      background: linear-gradient(90deg, #00ffaa, #00ccff);
+      height: 20px;
+      margin: 2px 0;
+      border-radius: 4px;
+    }
+    .stat-box {
+      display: inline-block;
+      background: #16213e;
+      padding: 15px 25px;
+      margin: 10px;
+      border-radius: 8px;
+      border: 2px solid #0f3460;
+      min-width: 150px;
+    }
+    .stat-label { color: #888; font-size: 0.9em; }
+    .stat-value { color: #00ffaa; font-size: 1.5em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🧠 Emergence Engine Policy Comparison Report</h1>
+  <p style="text-align: center; color: #888;">Generated: 11/3/2025, 11:17:43 PM</p>
+  
+  <h2>📊 Summary Statistics</h2>
+  <div style="text-align: center;">
+    <div class="stat-box">
+      <div class="stat-label">Policies Analyzed</div>
+      <div class="stat-value">6</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Generation Range</div>
+      <div class="stat-value">10 - 60</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Best Reward</div>
+      <div class="stat-value">77.15</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Avg Resource Score</div>
+      <div class="stat-value">0.040</div>
+    </div>
+  </div>
+
+  <h2>📈 Performance Comparison</h2>
+  <table>
+    <tr>
+      <th>File</th>
+      <th>Gen</th>
+      <th>Best Reward</th>
+      <th>Mean Reward</th>
+      <th>Resource Score</th>
+      <th>Convergence</th>
+      <th>Status</th>
+    </tr>
+    <tr>
+        <td>gen4adapslime-policy-gen10.json</td>
+        <td>10</td>
+        <td>77.15</td>
+        <td>-54.19</td>
+        <td class="bad">0.040</td>
+        <td class="good">37.5% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen20.json</td>
+        <td>20</td>
+        <td>77.15</td>
+        <td>-68.94</td>
+        <td class="bad">0.040</td>
+        <td class="warn">60.4% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen30.json</td>
+        <td>30</td>
+        <td>77.15</td>
+        <td>-68.67</td>
+        <td class="bad">0.040</td>
+        <td class="warn">66.7% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen40.json</td>
+        <td>40</td>
+        <td>77.15</td>
+        <td>-61.48</td>
+        <td class="bad">0.040</td>
+        <td class="warn">72.9% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen50.json</td>
+        <td>50</td>
+        <td>77.15</td>
+        <td>-73.76</td>
+        <td class="bad">0.040</td>
+        <td class="warn">68.8% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen60.json</td>
+        <td>60</td>
+        <td>77.15</td>
+        <td>-73.56</td>
+        <td class="bad">0.040</td>
+        <td class="warn">58.3% collapsed</td>
+        <td class="bad">✗ Weak</td>
+      </tr>
+  </table>
+
+  <h2>🎯 Resource-Seeking Weights</h2>
+  <table>
+    <tr>
+      <th>File</th>
+      <th>Gen</th>
+      <th>Turn→resDx</th>
+      <th>Turn→resDy</th>
+      <th>Thrust→resVis</th>
+      <th>Overall Score</th>
+    </tr>
+    <tr>
+        <td>gen4adapslime-policy-gen10.json</td>
+        <td>10</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen20.json</td>
+        <td>20</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen30.json</td>
+        <td>30</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen40.json</td>
+        <td>40</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen50.json</td>
+        <td>50</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr><tr>
+        <td>gen4adapslime-policy-gen60.json</td>
+        <td>60</td>
+        <td class="bad">0.0118</td>
+        <td class="warn">0.0704</td>
+        <td class="bad">-0.1192</td>
+        <td class="bad">0.040</td>
+      </tr>
+  </table>
+
+  <h2>📉 Learning Progress</h2>
+  <div class="chart-container">
+    <h3>Best Reward Over Generations</h3>
+    
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 10</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 20</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 30</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 40</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 50</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 60</span>
+          <div class="bar" style="width: 100%; background: #00ff88;"></div>
+          <span style="margin-left: 10px; color: #00ff88;">77.15</span>
+        </div>
+      
+  </div>
+
+  <div class="chart-container">
+    <h3>Resource-Seeking Score Over Generations</h3>
+    
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 10</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 20</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 30</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 40</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 50</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+        <div style="margin: 10px 0;">
+          <span style="display: inline-block; width: 150px; color: #aaa;">Gen 60</span>
+          <div class="bar" style="width: 8.09424636716145%; background: #ff5555;"></div>
+          <span style="margin-left: 10px; color: #ff5555;">0.040</span>
+        </div>
+      
+  </div>
+
+  <h2>🔍 Detailed Weight Analysis</h2>
+  <table>
+    <tr>
+      <th>Generation</th>
+      <th>Avg Sigma</th>
+      <th>Collapsed %</th>
+      <th>Turn→wallMag</th>
+      <th>Thrust→wallMag</th>
+      <th>Turn→chi</th>
+      <th>Thrust→chi</th>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td class="warn">0.0217</td>
+      <td class="good">37.5%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr><tr>
+      <td>20</td>
+      <td class="bad">0.0118</td>
+      <td class="warn">60.4%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr><tr>
+      <td>30</td>
+      <td class="bad">0.0113</td>
+      <td class="warn">66.7%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr><tr>
+      <td>40</td>
+      <td class="bad">0.0110</td>
+      <td class="warn">72.9%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr><tr>
+      <td>50</td>
+      <td class="bad">0.0112</td>
+      <td class="warn">68.8%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr><tr>
+      <td>60</td>
+      <td class="bad">0.0123</td>
+      <td class="warn">58.3%</td>
+      <td>0.0586</td>
+      <td>-0.0926</td>
+      <td>0.0013</td>
+      <td>-0.1624</td>
+    </tr>
+  </table>
+
+  <h2>💡 Key Insights</h2>
+  <div class="chart-container">
+    
+      <p><strong>Performance Trend:</strong> 
+        <span class="bad">Declining ↓</span>
+        (0.0%)
+      </p>
+      <p><strong>Resource-Seeking Trend:</strong>
+        <span class="bad">Declining ↓</span>
+        (0.040 → 0.040)
+      </p>
+      <p><strong>Convergence Status:</strong>
+        <span class="warn">⚠ Converging</span>
+      </p>
+    
+    
+    <p><strong>Best Performing Policy:</strong> 
+      gen4adapslime-policy-gen10.json
+      (Gen 10, 
+      Reward: 77.15)
+    </p>
+    
+    <p><strong>Best Resource-Seeking Policy:</strong>
+      gen4adapslime-policy-gen10.json
+      (Gen 10,
+      Score: 0.040)
+    </p>
+  </div>
+
+  <div style="margin-top: 40px; padding: 20px; background: #16213e; border-radius: 8px; border-left: 4px solid #00ffaa;">
+    <h3 style="margin-top: 0;">📊 Interpretation Guide</h3>
+    <p><strong>Resource Score:</strong> < 0.1 = Weak, 0.1-0.3 = Moderate, > 0.3 = Strong</p>
+    <p><strong>Collapsed %:</strong> < 50% = Exploring, 50-80% = Converging, > 80% = Stuck</p>
+    <p><strong>Best Reward:</strong> Negative = dying early, 0-20 = collecting 1-2 resources, > 20 = good performance</p>
+    <p><strong>Weights:</strong> > 0.2 = Strong influence, 0.05-0.2 = Moderate, < 0.05 = Weak/ignored</p>
+  </div>
+</body>
+</html>

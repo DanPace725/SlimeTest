@@ -1,4 +1,4 @@
-// Observation Vector Builder for Essence Engine Learning
+// Observation Vector Builder for Emergence Engine Learning
 // Constructs normalized obs vector from bundle state
 
 import { CONFIG } from './config.js';

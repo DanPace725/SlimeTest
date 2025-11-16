@@ -1,4 +1,4 @@
-# 🎯 Essence Engine Project - Progress Overview
+# 🎯 Emergence Engine Project - Progress Overview
 
 ## Executive Summary
 

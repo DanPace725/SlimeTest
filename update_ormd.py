@@ -59,12 +59,12 @@ def generate_ormd_header(filepath, title=None):
     header = f"""<!-- ormd:0.1 -->
 ---
 title: "{title}"
-authors: ["Essence Engine Team"]
+authors: ["Emergence Engine Team"]
 dates:
   created: '{timestamp}'
 links: []
 status: "{status}"
-description: "Essence Engine documentation"
+description: "Emergence Engine documentation"
 ---
 """
     return header

@@ -1,0 +1,121 @@
+{
+  "timestamp": "2025-11-16T00:47:05.139Z",
+  "snapshots": [
+    {
+      "file": "adaptive-heuristics-1763252699575.json",
+      "timestamp": "2025-11-16T00:24:59.575Z",
+      "baselineReward": 2.303621353020378,
+      "rewardStats": {
+        "average": 2.277323715804329,
+        "min": 1.5303888307187772,
+        "max": 2.8921717971674483,
+        "std": 0.5462182503443941
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.454292469523347,
+        "moveSpeedPxPerSec": 1.2977436205875943,
+        "exploreNoiseBase": 2.99577619626863,
+        "exploreNoiseGain": 2.9964801635571865,
+        "turnRateGain": 0.10587365999883896,
+        "mitosisWCapacity": 1.4436653106391408,
+        "mitosisWStrain": 0.5336807898544874
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763252963225.json",
+      "timestamp": "2025-11-16T00:29:23.225Z",
+      "baselineReward": 4.545480875375562,
+      "rewardStats": {
+        "average": 4.680431701487394,
+        "min": 0.9649015149487321,
+        "max": 9.213776351810777,
+        "std": 2.5428205327377342
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.152202269931806,
+        "moveSpeedPxPerSec": 1.5706937432396213,
+        "exploreNoiseBase": 3,
+        "exploreNoiseGain": 3,
+        "turnRateGain": 0.1,
+        "mitosisWCapacity": 1.6222562747236922,
+        "mitosisWStrain": 0.4072787269821375
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763253141970.json",
+      "timestamp": "2025-11-16T00:32:21.970Z",
+      "baselineReward": 5.15227483934855,
+      "rewardStats": {
+        "average": 5.196001790545349,
+        "min": 2.891005284585413,
+        "max": 6.6425153879187295,
+        "std": 1.1384571015641793
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 1.9331510973096822,
+        "moveSpeedPxPerSec": 1.5848267421423703,
+        "exploreNoiseBase": 3,
+        "exploreNoiseGain": 3,
+        "turnRateGain": 0.11385323584464191,
+        "mitosisWCapacity": 1.6777067826373138,
+        "mitosisWStrain": 0.36079913666053937
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763253240340.json",
+      "timestamp": "2025-11-16T00:34:00.340Z",
+      "baselineReward": 7.470805963701631,
+      "rewardStats": {
+        "average": 7.410828609184955,
+        "min": 6.9969037248898305,
+        "max": 7.585614607241675,
+        "std": 0.14927420614775602
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 2.1917344182158076,
+        "moveSpeedPxPerSec": 1.5522677332319843,
+        "exploreNoiseBase": 2.969244939678606,
+        "exploreNoiseGain": 2.974370783065498,
+        "turnRateGain": 0.10073663266444172,
+        "mitosisWCapacity": 1.7150289577405315,
+        "mitosisWStrain": 0.32588197927160617
+      },
+      "trainingDataCount": 0
+    },
+    {
+      "file": "adaptive-heuristics-1763253655673.json",
+      "timestamp": "2025-11-16T00:40:55.673Z",
+      "baselineReward": 5.6481717383588785,
+      "rewardStats": {
+        "average": 5.620448785477118,
+        "min": 1.4738077159217506,
+        "max": 9.549542143553838,
+        "std": 2.2494760756476877
+      },
+      "keyMultipliers": {
+        "resourceAttractionStrength": 2.439771563848255,
+        "moveSpeedPxPerSec": 1.9415118869437427,
+        "exploreNoiseBase": 2.9982890685194055,
+        "exploreNoiseGain": 2.9985742237661728,
+        "turnRateGain": 0.11783822167040273,
+        "mitosisWCapacity": 2.0178563844156128,
+        "mitosisWStrain": 0.25
+      },
+      "trainingDataCount": 0
+    }
+  ],
+  "correlations": {
+    "resourceAttractionStrength": 0.6643123769955142,
+    "moveSpeedPxPerSec": 0.5413397044126154,
+    "exploreNoiseBase": -0.6555382167583381,
+    "exploreNoiseGain": -0.6555382167739938,
+    "turnRateGain": -0.021337411424037347,
+    "mitosisWCapacity": 0.6200465818202707,
+    "mitosisWStrain": -0.8196125066819385
+  },
+  "avgGradients": {},
+  "insights": []
+}
